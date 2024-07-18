@@ -4,6 +4,7 @@ go 1.22.2
 
 require (
 	github.com/gertd/go-pluralize v0.2.1
+	github.com/iancoleman/strcase v0.3.0
 	github.com/stretchr/testify v1.9.0
 	golang.org/x/text v0.16.0
 )

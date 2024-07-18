@@ -1,0 +1,43 @@
+{
+  "api_svc_intf": {
+    "path": "internal/api/interfaces.go",
+    "strategy": "append",
+    "description": "This file contains the interfaces for the API services. It will append the interface definition for the new service to the file.",
+    "templateString": [
+      "// {{ singular .Domain | lowerCamel }}Svc represents the {{ singular .Domain | lowerCamel }} service.",
+      "type {{ singular .Domain | camel }}Svc interface {",
+      "  Create(ctx context.Context, req *dto.Create{{ singular .Domain | camel }}Req) (*dto.Create{{ singular .Domain | camel }}Resp, error)",
+      "  Update(ctx context.Context, req *dto.Update{{ singular .Domain | camel }}Req) (*dto.Update{{ singular .Domain | camel }}Resp, error)",
+      "  Get(ctx context.Context, req *dto.Get{{ singular .Domain | camel }}Req) (*dto.Get{{ singular .Domain | camel }}Resp, error)",
+      "  List(ctx context.Context, req *dto.List{{ plural .Domain | camel }}Req) (*dto.List{{ plural .Domain | camel }}Resp, error)",
+      "  Delete(ctx context.Context, req *dto.Delete{{ singular .Domain | camel }}Req) (*dto.Delete{{ singular .Domain | camel }}Resp, error)",
+      "}"
+    ],
+    "requiredContext": ["Domain"],
+    "dependencies": ["dto"],
+    "context": null
+  },
+  "api": {
+    "path": "internal/api/{{ snake .Domain | singular | lower }}.go",
+    "strategy": "ignore",
+    "description": "This file contains the implementation of the API service. It will create a new file if not exists with the implementation of the new service else it will not do anything.",
+    "templateString": [
+      "package api",
+      "// {{ singular .Domain | camel }} represents the {{ lowerCamel .Domain }} API.",
+      "type {{ singular .Domain | camel }} struct {",
+      "  API",
+      "  svc {{ singular .Domain | camel }}Svc",
+      "}",
+      "",
+      "// New{{ singular .Domain | camel }} returns a new {{ singular .Domain | camel }} instance.",
+      "func New{{ singular .Domain | camel }}(svc {{ singular .Domain | camel }}Svc) *{{ singular .Domain | camel }} {",
+      "  return \u0026{{ singular .Domain | camel }}{",
+      "    svc: svc,",
+      "  }",
+      "}"
+    ],
+    "requiredContext": ["Domain"],
+    "dependencies": ["dto", "api_svc_intf"],
+    "context": null
+  }
+}

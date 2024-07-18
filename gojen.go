@@ -1,10 +1,14 @@
 package gojen
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"text/template"
+
+	"github.com/iancoleman/strcase"
 )
 
 // Strategy is a type that represents the strategy for setting a template.
@@ -34,6 +38,26 @@ func New(cfg *Config) *Gojen {
 		defs:         make(map[string]*D),
 		dependencies: make(map[string][]string),
 	}
+}
+
+// LoadJSON loads template config from file.
+func (g *Gojen) LoadJSON(jsonPath string) error {
+	f, err := os.Open(jsonPath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	defs := map[string]*JSOND{}
+	if err := json.NewDecoder(f).Decode(&defs); err != nil {
+		return err
+	}
+
+	for k, def := range defs {
+		g.SetTemplate(k, def.toD())
+	}
+
+	return nil
 }
 
 // SetTemplate sets a template.
@@ -89,10 +113,36 @@ func (g *Gojen) AddContext(key string, value any) {
 	g.context[key] = value
 }
 
+// PrintJSONDefinitions prints the JSON definitions.
+func (g *Gojen) PrintJSONDefinitions() error {
+	mapJSOND := map[string]*JSOND{}
+	for k, v := range g.defs {
+		mapJSOND[k] = v.toJSOND()
+	}
+	b, err := json.MarshalIndent(mapJSOND, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	fmt.Println(string(b))
+	return nil
+}
+
 // Build builds the templates.
-func (g *Gojen) Build() error {
+func (g *Gojen) Build(tmplNames ...string) error {
 	built := []string{}
-	for name, def := range g.defs {
+
+	defs := g.defs
+	if len(tmplNames) > 0 {
+		defs = map[string]*D{}
+		for _, name := range tmplNames {
+			if tmpl, exists := g.defs[name]; exists {
+				defs[name] = tmpl
+			}
+		}
+	}
+
+	for name, def := range defs {
 		f, err := g.buildTemplate(name, def)
 		if err != nil {
 			return err
@@ -109,27 +159,37 @@ func (g *Gojen) Build() error {
 
 // makeTemplate creates a new template.
 func (g *Gojen) makeTemplate(name string, templateString string) (*template.Template, error) {
-	t := template.New(name)
-	t = t.Funcs(template.FuncMap{
-		"singular": singular,
-		"plural":   plural,
-		"title":    title,
-		"lower":    lower,
-	})
+	t := template.
+		New(name).
+		Funcs(template.FuncMap{
+			"singular":       singular,
+			"plural":         plural,
+			"title":          title,
+			"lower":          lower,
+			"upper":          upper,
+			"snake":          strcase.ToSnake,
+			"camel":          strcase.ToCamel,
+			"screamingSnake": strcase.ToScreamingSnake,
+			"kebab":          strcase.ToKebab,
+			"screamingKebab": strcase.ToScreamingKebab,
+			"lowerCamel":     strcase.ToLowerCamel,
+		}).
+		Option("missingkey=zero")
 	if _, err := t.Parse(templateString); err != nil {
 		return nil, err
 	}
+
 	return t, nil
 }
 
 // execTemplate executes a template.
-func (g *Gojen) execTemplate(t *template.Template, writer *os.File) error {
-	return t.Execute(writer, &g.context)
+func (g *Gojen) execTemplate(t *template.Template, writer io.Writer, ctx map[string]any) error {
+	return t.Execute(writer, &ctx)
 }
 
-func (g *Gojen) execTemplateToString(t *template.Template) (string, error) {
+func (g *Gojen) execTemplateToString(t *template.Template, ctx map[string]any) (string, error) {
 	writer := &strings.Builder{}
-	if err := t.Execute(writer, &g.context); err != nil {
+	if err := t.Execute(writer, &ctx); err != nil {
 		return "", err
 	}
 
@@ -138,8 +198,18 @@ func (g *Gojen) execTemplateToString(t *template.Template) (string, error) {
 
 // buildTemplate builds a template.
 func (g *Gojen) buildTemplate(name string, d *D) (string, error) {
+	myCtx := make(map[string]any)
+
+	// Merge g.context and d.Context into myCtx
+	for _, contextMap := range []map[string]any{g.context, d.Context} {
+		for k, v := range contextMap {
+			myCtx[k] = v
+		}
+	}
+
+	// Check for required context keys
 	for _, key := range d.RequiredContext {
-		if _, exists := g.context[key]; !exists {
+		if _, exists := myCtx[key]; !exists {
 			return "", fmt.Errorf("missing required context key: %s", key)
 		}
 	}
@@ -149,7 +219,7 @@ func (g *Gojen) buildTemplate(name string, d *D) (string, error) {
 		return "", err
 	}
 
-	pathStr, err := g.execTemplateToString(path)
+	pathStr, err := g.execTemplateToString(path, myCtx)
 	if err != nil {
 		return "", err
 	}
@@ -162,7 +232,7 @@ func (g *Gojen) buildTemplate(name string, d *D) (string, error) {
 	if g.cfg.dryRun {
 		fmt.Println("== DRY RUN ==")
 		fmt.Println(pathStr)
-		contentStr, err := g.execTemplateToString(content)
+		contentStr, err := g.execTemplateToString(content, myCtx)
 		if err != nil {
 			return "", err
 		}
@@ -175,6 +245,7 @@ func (g *Gojen) buildTemplate(name string, d *D) (string, error) {
 		return "", err
 	}
 
+	// 0777 is the permission
 	flag := os.O_CREATE | os.O_WRONLY
 	switch d.Strategy {
 	case StrategyTrunc:
@@ -198,7 +269,7 @@ func (g *Gojen) buildTemplate(name string, d *D) (string, error) {
 	}
 	defer file.Close()
 
-	if err := g.execTemplate(content, file); err != nil {
+	if err := g.execTemplate(content, file, myCtx); err != nil {
 		return "", err
 	}
 

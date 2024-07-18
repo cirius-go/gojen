@@ -1,0 +1,40 @@
+{
+  "svc": {
+    "path": "internal/service/{{ snake .Domain | singular | lower }}.go",
+    "templateString": [
+      "package service",
+      "",
+      "// {{ singular .Domain | camel }} represents the {{ lowerCamel .Domain }} service.",
+      "type {{ singular .Domain | camel }} struct {",
+      "  uow uow.UnitOfWork",
+      "}",
+      "",
+      "// New{{ singular .Domain | camel }} returns a new {{ singular .Domain | camel }} instance.",
+      "func New{{ singular .Domain | camel }}(uow uow.UnitOfWork) *{{ singular .Domain | camel }} {",
+      "  return \u0026{{ singular .Domain | camel }}{",
+      "    uow: uow,",
+      "  }",
+      "}",
+      "",
+      "{{ range .Actions }}",
+      "{{ if eq . \"List\" }}",
+      "// List implemented the api.{{ $.Domain }}Svc.",
+      "func (s *{{ singular $.Domain | camel }}) List(ctx context.Context, req *dto.List{{ plural $.Domain | camel }}Req) (*dto.List{{ plural $.Domain | camel }}Resp, error) {",
+      "  panic(\"not implemented\")",
+      "}{{ end }}{{ end }}",
+      "{{ else }}",
+      "",
+      "// {{ singular . | camel }} implemented the api.{{ $.Domain }}Svc.",
+      "func (s *{{ singular $.Domain | camel }}) {{ singular . | camel }}(ctx context.Context, req *dto.{{ singular . | camel }}{{ singular $.Domain | camel }}Req) (*dto.{{ singular . | camel }}{{ singular $.Domain | camel }}Resp, error) {",
+      "  panic(\"not implemented\")",
+      "}{{ end }}{{ end }}"
+    ],
+    "strategy": "ignore",
+    "requiredContext": ["Domain"],
+    "dependencies": ["dto"],
+    "context": {
+      "Actions": ["Create", "Update", "Get", "List", "Delete"]
+    },
+    "description": ""
+  }
+}

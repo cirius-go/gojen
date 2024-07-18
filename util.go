@@ -31,6 +31,10 @@ func lower(s string) string {
 	return strings.ToLower(s)
 }
 
+func upper(s string) string {
+	return strings.ToUpper(s)
+}
+
 func makeDirAll(path string) error {
 	dir, _ := filepath.Split(path)
 	if err := os.MkdirAll(dir, os.ModePerm); err != nil {
