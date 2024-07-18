@@ -1,45 +1,30 @@
 package gojen
 
-import (
-	"os"
-	"path/filepath"
-	"strings"
-
-	"github.com/gertd/go-pluralize"
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
-)
-
-var (
-	pl         = pluralize.NewClient()
-	titleCaser = cases.Title(language.AmericanEnglish)
-)
-
-func singular(s string) string {
-	return pl.Singular(s)
+func mergeMaps[K comparable, V any](maps ...map[K]V) map[K]V {
+	result := make(map[K]V)
+	for _, m := range maps {
+		for k, v := range m {
+			result[k] = v
+		}
+	}
+	return result
 }
 
-func plural(s string) string {
-	return pl.Plural(s)
-}
+func filterMap[K comparable, V any](m map[K]V, keys []K) map[K]V {
+	result := make(map[K]V)
+	for k, v := range m {
+		exists := false
+		for _, key := range keys {
+			if k == key {
+				exists = true
+				break
+			}
+		}
 
-func title(s string) string {
-	return titleCaser.String(s)
-}
-
-func lower(s string) string {
-	return strings.ToLower(s)
-}
-
-func upper(s string) string {
-	return strings.ToUpper(s)
-}
-
-func makeDirAll(path string) error {
-	dir, _ := filepath.Split(path)
-	if err := os.MkdirAll(dir, os.ModePerm); err != nil {
-		return err
+		if exists {
+			result[k] = v
+		}
 	}
 
-	return nil
+	return result
 }

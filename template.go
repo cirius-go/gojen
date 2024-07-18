@@ -7,12 +7,32 @@ import (
 // D represents a template definition.
 type D struct {
 	Path            string
+	Name            string
 	Context         map[string]any
 	TemplateString  string
 	Strategy        Strategy
 	RequiredContext []string
 	Dependencies    []string
 	Description     string
+}
+
+func (d *D) isCtxSatisfied() (bool, []string) {
+	notSatisfied := []string{}
+	for _, key := range d.RequiredContext {
+		if _, exists := d.Context[key]; !exists {
+			notSatisfied = append(notSatisfied, key)
+		}
+	}
+	return len(notSatisfied) == 0, notSatisfied
+}
+
+// mergeGlobalCtx merges the global context with the template context.
+// It returns the merged context.
+// The template context takes precedence over the global context.
+func (d *D) mergeGlobalCtx(ctx map[string]any) *D {
+	d.Context = mergeMaps(ctx, d.Context)
+
+	return d
 }
 
 // JSOND represents a JSON template definition.
