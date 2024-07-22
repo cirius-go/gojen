@@ -14,8 +14,7 @@ import (
 // ENUM(trunc,append,ignore)
 // trunc: Truncate the destination file. (please commit this file to git before running gojen)
 // append: Append at the end to the destination file.
-// update: update methods of the destination struct/interface.
-// override: override the destination struct/interface.
+// ignore: Ignore the destination file.
 //
 //go:generate go-enum -f=$GOFILE --marshal --names --values
 type Strategy string
