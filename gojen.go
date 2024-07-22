@@ -144,9 +144,14 @@ func (g *Gojen) PrintJSONDefinitions() error {
 
 // makeTemplate creates a new template.
 func (g *Gojen) makeTemplate(name string, templateString string) (*template.Template, error) {
+	tmplFuncs := templateFuncs
+	if len(g.cfg.customPipeline) > 0 {
+		tmplFuncs = mergeMaps(templateFuncs, g.cfg.customPipeline)
+	}
+
 	t := template.
 		New(name).
-		Funcs(templateFuncs).
+		Funcs(tmplFuncs).
 		Option("missingkey=zero")
 	if _, err := t.Parse(templateString); err != nil {
 		return nil, err
