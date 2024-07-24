@@ -217,7 +217,7 @@ func (g *Gojen) buildTemplate(name string, d *D) (string, error) {
 		return "", nil
 	}
 
-	file, err := openFileWithStrategy(fp, d.Strategy, os.ModePerm)
+	file, err := openFileWithStrategy(fp, d.Strategy, 0644)
 	if err != nil {
 		return "", err
 	}
