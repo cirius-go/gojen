@@ -14,8 +14,7 @@ import (
 // ENUM(trunc,append,ignore)
 // trunc: Truncate the destination file. (please commit this file to git before running gojen)
 // append: Append at the end to the destination file.
-// update: update methods of the destination struct/interface.
-// override: override the destination struct/interface.
+// ignore: Ignore the destination file.
 //
 //go:generate go-enum -f=$GOFILE --marshal --names --values
 type Strategy string
@@ -145,9 +144,14 @@ func (g *Gojen) PrintJSONDefinitions() error {
 
 // makeTemplate creates a new template.
 func (g *Gojen) makeTemplate(name string, templateString string) (*template.Template, error) {
+	tmplFuncs := templateFuncs
+	if len(g.cfg.customPipeline) > 0 {
+		tmplFuncs = mergeMaps(templateFuncs, g.cfg.customPipeline)
+	}
+
 	t := template.
 		New(name).
-		Funcs(templateFuncs).
+		Funcs(tmplFuncs).
 		Option("missingkey=zero")
 	if _, err := t.Parse(templateString); err != nil {
 		return nil, err
