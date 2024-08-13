@@ -315,7 +315,7 @@ func (g *Gojen) buildTemplate(name string, d *D) (string, error) {
 			}
 
 			// Efficiently replace lines at the found position
-			lines = append(lines[:pos], append(strings.Split(contentStr, "\n"), lines[pos+1:]...)...)
+			lines = append(lines[:pos], append(strings.Split(contentStr, "\n"), lines[pos:]...)...)
 		}
 
 		// Seek to the beginning of the file and truncate it
