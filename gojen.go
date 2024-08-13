@@ -1,6 +1,7 @@
 package gojen
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -287,6 +288,53 @@ func (g *Gojen) buildTemplate(name string, d *D) (string, error) {
 		return "", err
 	}
 	defer file.Close()
+
+	if d.Strategy == StrategyAppend {
+		appendMark := fmt.Sprintf("// +gojen:append=%s", name)
+		pos := -1
+
+		// Use bufio.Scanner to scan the file and collect lines
+		scanner := bufio.NewScanner(file)
+		lines := []string{}
+		for i := 0; scanner.Scan(); i++ {
+			if pos == -1 && strings.HasPrefix(strings.TrimSpace(scanner.Text()), appendMark) {
+				pos = i
+			}
+			lines = append(lines, scanner.Text())
+		}
+
+		if err := scanner.Err(); err != nil {
+			return "", err
+		}
+
+		if pos != -1 {
+			// magic mark found, generate content
+			contentStr, err := g.makeAndExecToStr(name, tmplStr, d.Context)
+			if err != nil {
+				return "", err
+			}
+
+			// Efficiently replace lines at the found position
+			lines = append(lines[:pos], append(strings.Split(contentStr, "\n"), lines[pos+1:]...)...)
+		}
+
+		// Seek to the beginning of the file and truncate it
+		if err := file.Truncate(0); err != nil {
+			return "", err
+		}
+
+		if _, err := file.Seek(0, 0); err != nil {
+			return "", err
+		}
+
+		// Write the new content
+		if _, err := file.WriteString(strings.Join(lines, "\n")); err != nil {
+			return "", err
+		}
+
+		fmt.Printf("modified '%s'\n", fp)
+		return fp, nil
+	}
 
 	if err := g.makeAndExec(name, tmplStr, file, d.Context); err != nil {
 		return "", err
