@@ -235,6 +235,35 @@ func (g *Gojen) buildTemplate(name string, d *D) (string, error) {
 	return fp, nil
 }
 
+func (g *Gojen) ListTemplateUsages() map[string][]string {
+	res := map[string][]string{}
+
+	for k, v := range g.defs {
+		if _, ok := res[k]; !ok {
+			res[k] = []string{}
+		}
+
+		res[k] = append(res[k], v.Description)
+		if len(v.Dependencies) > 0 {
+			res[k] = append(res[k], "Dependencies: ")
+		}
+
+		res[k] = append(res[k], v.Dependencies...)
+	}
+
+	return res
+}
+
+func (g *Gojen) PrintParsedTemplateUsages() {
+	usages := g.ListTemplateUsages()
+	for k, v := range usages {
+		fmt.Printf("Template: %s\n", k)
+		for _, u := range v {
+			fmt.Printf("  %s\n", u)
+		}
+	}
+}
+
 // Build builds the templates.
 func (g *Gojen) Build(tmplNames ...string) error {
 	defs := g.defs
