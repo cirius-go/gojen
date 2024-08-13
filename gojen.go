@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"text/template"
+
+	"github.com/cirius-go/gojen/color"
 )
 
 // Strategy is a type that represents the strategy for setting a template.
@@ -216,8 +218,10 @@ func (g *Gojen) buildTemplate(name string, d *D) (string, error) {
 			return "", err
 		}
 
-		fmt.Printf("== DRY RUN: %s ==\n%s\n%s\n", fp, d.Description, contentStr)
-		// INFO: no path generated or modified in dry run
+		msg := fmt.Sprintf("== DRY RUN: %s ==", fp)
+		msg = color.Blue + msg + color.Reset
+		msg += "\n" + color.Blue + d.Description + color.Reset + "\n" + color.Green + contentStr + color.Reset + "\n"
+		fmt.Printf(msg)
 		return "", nil
 	}
 
@@ -227,8 +231,13 @@ func (g *Gojen) buildTemplate(name string, d *D) (string, error) {
 			return "", err
 		}
 
-		fmt.Printf("== Modified file content: %s ==\n%s\n%s\n", fp, d.Description, contentStr)
-		fmt.Printf("Do you want to run the template '%s'? (y/N)\n", name)
+		msg := fmt.Sprintf("== Modified file content: %s ==", fp)
+		msg = color.Blue + msg + color.Reset
+		msg += "\n" + color.Blue + d.Description + color.Reset + "\n" + color.Green + contentStr + color.Reset + "\n"
+		fmt.Printf(msg)
+		msg = fmt.Sprintf("Do you want to run the template '%s'? (y/N)\n", name)
+		msg = color.Red + msg + color.Reset
+		fmt.Printf(msg)
 
 		var confirm = ""
 		_, err = fmt.Scan(&confirm)
