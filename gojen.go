@@ -222,7 +222,7 @@ func (g *Gojen) buildTemplate(name string, d *D) (string, error) {
 	}
 
 	if d.Confirm {
-		fmt.Printf("Do you want to run the template '%s'? (y/N)\n", d.Name)
+		fmt.Printf("Do you want to run the template '%s'? (y/N)\n", name)
 
 		var confirm = ""
 		_, err := fmt.Scan(&confirm)
@@ -277,7 +277,7 @@ func (g *Gojen) PrintParsedTemplateUsages() {
 	for k, v := range usages {
 		fmt.Printf("- Template: '%s'\n", k)
 		for _, u := range v {
-			fmt.Printf("  +%s\n", u)
+			fmt.Printf("  + %s\n", u)
 		}
 	}
 }
