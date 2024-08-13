@@ -212,8 +212,38 @@ func (g *Gojen) buildTemplate(name string, d *D) (string, error) {
 		return "", err
 	}
 
+	tmplStr := d.TemplateString
+	if len(d.Select) > 0 {
+		selectedOpt := 0
+		fmt.Printf("Please select one of the following options for '%s':\n", name)
+
+		for i, s := range d.Select {
+			contentStr, err := g.makeAndExecToStr(name, s, d.Context)
+			if err != nil {
+				return "", err
+			}
+
+			msg := fmt.Sprintf("Option %d: %s", i+1, fp)
+			msg = color.Blue + msg + color.Reset
+			msg += "\n" + color.Green + contentStr + color.Reset + "\n"
+			fmt.Printf(msg)
+		}
+
+		fmt.Printf("Enter the option number: ")
+		_, err = fmt.Scan(&selectedOpt)
+		if err != nil {
+			return "", err
+		}
+
+		if selectedOpt < 1 || selectedOpt > len(d.Select) {
+			return "", fmt.Errorf("invalid option selected")
+		}
+
+		tmplStr = d.Select[selectedOpt-1]
+	}
+
 	if g.cfg.dryRun {
-		contentStr, err := g.makeAndExecToStr(name, d.TemplateString, d.Context)
+		contentStr, err := g.makeAndExecToStr(name, tmplStr, d.Context)
 		if err != nil {
 			return "", err
 		}
@@ -226,7 +256,7 @@ func (g *Gojen) buildTemplate(name string, d *D) (string, error) {
 	}
 
 	if d.Confirm {
-		contentStr, err := g.makeAndExecToStr(name, d.TemplateString, d.Context)
+		contentStr, err := g.makeAndExecToStr(name, tmplStr, d.Context)
 		if err != nil {
 			return "", err
 		}
@@ -258,7 +288,7 @@ func (g *Gojen) buildTemplate(name string, d *D) (string, error) {
 	}
 	defer file.Close()
 
-	if err := g.makeAndExec(name, d.TemplateString, file, d.Context); err != nil {
+	if err := g.makeAndExec(name, tmplStr, file, d.Context); err != nil {
 		return "", err
 	}
 

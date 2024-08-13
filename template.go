@@ -10,6 +10,7 @@ type D struct {
 	Name            string
 	Context         map[string]any
 	TemplateString  string
+	Select          []string
 	Strategy        Strategy
 	RequiredContext []string
 	Dependencies    []string
