@@ -222,10 +222,16 @@ func (g *Gojen) buildTemplate(name string, d *D) (string, error) {
 	}
 
 	if d.Confirm {
+		contentStr, err := g.makeAndExecToStr(name, d.TemplateString, d.Context)
+		if err != nil {
+			return "", err
+		}
+
+		fmt.Printf("== Modified file content: %s ==\n%s\n%s\n", fp, d.Description, contentStr)
 		fmt.Printf("Do you want to run the template '%s'? (y/N)\n", name)
 
 		var confirm = ""
-		_, err := fmt.Scan(&confirm)
+		_, err = fmt.Scan(&confirm)
 		if err != nil {
 			return "", err
 		}
