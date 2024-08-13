@@ -221,6 +221,22 @@ func (g *Gojen) buildTemplate(name string, d *D) (string, error) {
 		return "", nil
 	}
 
+	if d.Confirm {
+		fmt.Printf("Do you want to run the template '%s'? (y/N)\n", d.Name)
+
+		var confirm = ""
+		_, err := fmt.Scan(&confirm)
+		if err != nil {
+			return "", err
+		}
+
+		switch confirm {
+		case "y", "Y", "true", "1":
+		default:
+			return "", nil
+		}
+	}
+
 	file, err := openFileWithStrategy(fp, d.Strategy, 0644)
 	if err != nil {
 		return "", err
@@ -248,7 +264,9 @@ func (g *Gojen) ListTemplateUsages() map[string][]string {
 			res[k] = append(res[k], "Dependencies: ")
 		}
 
-		res[k] = append(res[k], v.Dependencies...)
+		for _, dep := range v.Dependencies {
+			res[k] = append(res[k], fmt.Sprintf("'%s'", dep))
+		}
 	}
 
 	return res
@@ -257,9 +275,9 @@ func (g *Gojen) ListTemplateUsages() map[string][]string {
 func (g *Gojen) PrintParsedTemplateUsages() {
 	usages := g.ListTemplateUsages()
 	for k, v := range usages {
-		fmt.Printf("Template: %s\n", k)
+		fmt.Printf("- Template: '%s'\n", k)
 		for _, u := range v {
-			fmt.Printf("  %s\n", u)
+			fmt.Printf("  +%s\n", u)
 		}
 	}
 }

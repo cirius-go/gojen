@@ -14,6 +14,7 @@ type D struct {
 	RequiredContext []string
 	Dependencies    []string
 	Description     string
+	Confirm         bool
 }
 
 func (d *D) isCtxSatisfied() (bool, []string) {
@@ -44,6 +45,7 @@ type JSOND struct {
 	Dependencies    []string       `json:"dependencies"`
 	Context         map[string]any `json:"context"`
 	Description     string         `json:"description"`
+	Confirm         bool           `json:"confirm"`
 }
 
 func (j *JSOND) toD() *D {
@@ -55,6 +57,7 @@ func (j *JSOND) toD() *D {
 		RequiredContext: j.RequiredContext,
 		Dependencies:    j.Dependencies,
 		Description:     j.Description,
+		Confirm:         j.Confirm,
 	}
 }
 
@@ -67,5 +70,6 @@ func (j *D) toJSOND() *JSOND {
 		RequiredContext: j.RequiredContext,
 		Dependencies:    j.Dependencies,
 		Description:     j.Description,
+		Confirm:         j.Confirm,
 	}
 }
