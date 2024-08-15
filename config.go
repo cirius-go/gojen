@@ -1,12 +1,10 @@
 package gojen
 
-import (
-	"text/template"
-)
-
 // Config is a struct that holds the configuration for the Gojen instance.
 type Config struct {
+	debug          bool
 	dryRun         bool
+	parseArgs      bool
 	customPipeline map[string]any
 }
 
@@ -16,21 +14,20 @@ func (c *Config) SetDryRun(dryRun bool) *Config {
 	return c
 }
 
-// RegisterPipeline registers a custom pipeline.
+// RegisterPipeline registers a custom pipeline for templates.
 func (c *Config) RegisterPipeline(name string, pipeline any) *Config {
-	switch v := pipeline.(type) {
-	case func(template.FuncMap, string) string:
-		// The custom pipeline is a function that takes a FuncMap and a string as
-		// arguments and returns a string.
-		c.customPipeline[name] = func(s string) string {
-			return v(templateFuncs, s)
-		}
-	default:
-		c.customPipeline[name] = pipeline
-	}
 	c.customPipeline[name] = pipeline
 	return c
 }
+
+// ParseArgs sets the parseArgs field of the Config struct.
+func (c *Config) ParseArgs(parseArgs bool) *Config {
+	c.parseArgs = parseArgs
+	return c
+}
+
+// SetDebug sets the debug field of the Config struct.
+func (c *Config) SetDebug(d bool) *Config { c.debug = d; return c }
 
 // C returns a new Config struct.
 func C() *Config {

@@ -6,6 +6,4 @@ that developers must repeatedly write.
 
 ## Guide
 
-
 ### Pipeline
-

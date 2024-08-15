@@ -1,14 +1,19 @@
 package gojen
 
 import (
-	"bufio"
 	"encoding/json"
+	"flag"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"text/template"
+
+	"github.com/gertd/go-pluralize"
+	"github.com/iancoleman/strcase"
+	"github.com/spf13/cobra"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 
 	"github.com/cirius-go/gojen/color"
 )
@@ -22,65 +27,178 @@ import (
 //go:generate go-enum -f=$GOFILE --marshal --names --values
 type Strategy string
 
-// Gojen
+// ENUM(plural,singular,irregular)
+//
+//go:generate go-enum -f=$GOFILE --marshal --names --values
+type PluralizeType string
+
+// Gojen is a struct that holds the Gojen instance.
 type Gojen struct {
-	cfg           *Config
-	context       map[string]any
-	defs          map[string]*D
-	dependencies  map[string][]string
 	ModifiedFiles []string
+
+	cfg          *Config
+	context      map[string]any
+	defs         map[string]*D
+	dependencies map[string][]string
+
+	useTmpls   []string
+	titleCaser cases.Caser
+	pluralize  *pluralize.Client
+	tmplFuncs  template.FuncMap
+	argCMD     *cobra.Command
 }
 
 // New returns a new Gojen instance.
-func New(cfg *Config) *Gojen {
-	return &Gojen{
+func New() *Gojen {
+	c := C()
+
+	return NewWithConfig(c)
+}
+
+// NewWithConfig returns a new Gojen instance.
+func NewWithConfig(cfg *Config) *Gojen {
+	if cfg == nil {
+		panic("config is required")
+	}
+	pl := pluralize.NewClient()
+	tc := cases.Title(language.AmericanEnglish)
+
+	g := &Gojen{
 		cfg:          cfg,
 		context:      make(map[string]any),
 		defs:         make(map[string]*D),
 		dependencies: make(map[string][]string),
+		titleCaser:   tc,
+		pluralize:    pl,
+		tmplFuncs: template.FuncMap{
+			"singular":   pl.Singular,
+			"plural":     pl.Plural,
+			"title":      tc.String,
+			"lower":      strings.ToLower,
+			"upper":      strings.ToUpper,
+			"snake":      strcase.ToSnake,
+			"titleSnake": strcase.ToScreamingSnake,
+			"camel":      strcase.ToCamel,
+			"lowerCamel": strcase.ToLowerCamel,
+			"kebab":      strcase.ToKebab,
+			"titleKebab": strcase.ToScreamingKebab,
+		},
+		argCMD: &cobra.Command{
+			Use:   "gojen",
+			Short: "gojen is a code generator that uses Go templates.",
+		},
 	}
+
+	g.argCMD.AddCommand(&cobra.Command{
+		Use:   "ctx",
+		Short: "context to be used in the template",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			for _, arg := range args {
+				c := map[string]any{}
+				if err := json.Unmarshal([]byte(arg), &c); err != nil {
+					return err
+				}
+
+				g.context = mergeMaps(g.context, c)
+			}
+
+			return nil
+		},
+	})
+
+	if len(g.cfg.customPipeline) > 0 {
+		g.tmplFuncs = mergeMaps(g.tmplFuncs, g.cfg.customPipeline)
+	}
+
+	if cfg.parseArgs {
+		g.argCMD.Execute()
+	}
+
+	return g
 }
 
-// LoadJSON loads template config from file.
-func (g *Gojen) LoadJSON(jsonPath string) error {
-	defs := map[string]*JSOND{}
-	if err := loadJSON(jsonPath, &defs); err != nil {
-		return err
+// LoadDir loads template definitions from a directory.
+func (g *Gojen) LoadDir(dir string) error {
+	if dir == "" {
+		return nil
 	}
 
-	for k, def := range defs {
-		g.SetTemplate(k, def.toD())
-	}
-
-	return nil
-}
-
-// LoadJSONInDir loads template config from files in dir.
-func (g *Gojen) LoadJSONInDir(dirPath string) error {
-	files, err := os.ReadDir(dirPath)
+	stat, err := os.Stat(dir)
 	if err != nil {
 		return err
 	}
+
+	if !stat.IsDir() {
+		return fmt.Errorf("'%s' is not a directory", dir)
+	}
+
+	files, err := os.ReadDir(dir)
+	if err != nil {
+		return err
+	}
+
 	for _, file := range files {
 		if file.IsDir() {
 			continue
 		}
-		fn := file.Name()
-		ext := filepath.Ext(fn)
-		if ext != ".json" {
+
+		if !strings.HasSuffix(file.Name(), ".json") {
 			continue
 		}
-		if err := g.LoadJSON(fn); err != nil {
+
+		fp := filepath.Join(dir, file.Name())
+		if err := g.LoadDef(fp); err != nil {
 			return err
 		}
+
+		fmt.Println("Loaded template definition from:", fp)
 	}
+
 	return nil
 }
 
+// LoadDef loads a template definition from a file.
+func (g *Gojen) LoadDef(fp string) error {
+	file, err := os.Open(fp)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	d := &D{}
+	if err := json.NewDecoder(file).Decode(&d); err != nil {
+		return err
+	}
+	if d.Name == "" {
+		return fmt.Errorf("name of template is required")
+	}
+	if g.defs[d.Name] != nil {
+		fmt.Printf("template '%s' already exists. Skipped to import definition from: %s\n", d.Name, fp)
+		return nil
+	}
+	g.defs[d.Name] = d
+	return nil
+}
+
+// SetPluralRules sets the plural rules for the strcase package.
+func (g *Gojen) SetPluralRules(rt PluralizeType, rules map[string]string) {
+	for k, v := range rules {
+		switch rt {
+		case PluralizeTypePlural:
+			g.pluralize.AddPluralRule(k, v)
+		case PluralizeTypeSingular:
+			g.pluralize.AddSingularRule(k, v)
+		case PluralizeTypeIrregular:
+			g.pluralize.AddIrregularRule(k, v)
+		default:
+			panic("invalid PluralizeType")
+		}
+	}
+}
+
 // SetTemplate sets a template.
-func (g *Gojen) SetTemplate(name string, template *D) {
+func (g *Gojen) SetTemplate(name string, template *D) *D {
 	if template == nil {
-		return
+		return nil
 	}
 
 	if !template.Strategy.IsValid() {
@@ -100,7 +218,10 @@ func (g *Gojen) SetTemplate(name string, template *D) {
 		}
 	}
 
+	template.Name = name
 	g.defs[name] = template
+
+	return template
 }
 
 // hasCycle performs DFS to detect cycles in the dependency graph.
@@ -130,152 +251,103 @@ func (g *Gojen) AddContext(key string, value any) {
 	g.context[key] = value
 }
 
-// PrintJSONDefinitions prints the JSON definitions.
-func (g *Gojen) PrintJSONDefinitions() error {
-	mapJSOND := map[string]*JSOND{}
-	for k, v := range g.defs {
-		mapJSOND[k] = v.toJSOND()
-	}
-	b, err := json.MarshalIndent(mapJSOND, "", "  ")
+// SetContext sets the context map.
+func (g *Gojen) SetContext(ctx map[string]any) {
+	g.context = ctx
+}
+
+// parseTemplate creates, executes a template, and returns the result as a string.
+func (g *Gojen) parseTemplate(name string, templateString string, ctx map[string]any) (string, error) {
+	t, err := template.New(name).Funcs(g.tmplFuncs).Option("missingkey=zero").Parse(templateString)
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	fmt.Println(string(b))
-	return nil
-}
-
-// makeTemplate creates a new template.
-func (g *Gojen) makeTemplate(name string, templateString string) (*template.Template, error) {
-	tmplFuncs := templateFuncs
-	if len(g.cfg.customPipeline) > 0 {
-		tmplFuncs = mergeMaps(templateFuncs, g.cfg.customPipeline)
-	}
-
-	t := template.
-		New(name).
-		Funcs(tmplFuncs).
-		Option("missingkey=zero")
-	if _, err := t.Parse(templateString); err != nil {
-		return nil, err
-	}
-
-	return t, nil
-}
-
-// exec executes a template.
-func (g *Gojen) exec(t *template.Template, writer io.Writer, ctx map[string]any) error {
-	return t.Execute(writer, &ctx)
-}
-
-// execToStr executes a template and returns the result as a string.
-func (g *Gojen) execToStr(t *template.Template, ctx map[string]any) (string, error) {
-	writer := &strings.Builder{}
-	if err := t.Execute(writer, &ctx); err != nil {
+	writer := strings.Builder{}
+	if err := t.Execute(&writer, &ctx); err != nil {
 		return "", err
 	}
 
 	return writer.String(), nil
 }
 
-// makeAndExec creates and executes a template.
-func (g *Gojen) makeAndExec(name string, templateString string, writer io.Writer, ctx map[string]any) error {
-	t, err := g.makeTemplate(name, templateString)
-	if err != nil {
-		return err
-	}
-	return g.exec(t, writer, ctx)
-}
-
-// makeAndExecToStr creates, executes a template, and returns the result as a string.
-func (g *Gojen) makeAndExecToStr(name string, templateString string, ctx map[string]any) (string, error) {
-	t, err := g.makeTemplate(name, templateString)
-	if err != nil {
-		return "", err
-	}
-	return g.execToStr(t, ctx)
-}
-
 // buildTemplate builds a template.
 // It returns the path of the modified file and an error if any.
-func (g *Gojen) buildTemplate(name string, d *D) (string, error) {
+func (g *Gojen) buildTemplate(name string, d *D, seq *sequence) (string, error) {
+	Redf("== Building template: %s ==\n", name)
 	// Prepare the context for template 'd'
-	d.mergeGlobalCtx(g.context)
+	d = d.mergeContext(g.context)
 
-	// Check all required context keys are satisfied
-	if satisfied, notSatisfied := d.isCtxSatisfied(); !satisfied {
-		return "", fmt.Errorf("required context keys not satisfied: %v", notSatisfied)
+	if err := d.tryProvideCtx(d.Require); err != nil {
+		return "", err
 	}
 
 	// make the file path with context.
-	fp, err := g.makeAndExecToStr(d.Path, d.Path, d.Context)
+	fp, err := g.parseTemplate(d.Path, d.Path, d.Context)
 	if err != nil {
 		return "", err
 	}
 
-	tmplStr := d.TemplateString
-	if len(d.Select) > 0 {
-		selectedOpt := 0
-		fmt.Printf("Please select one of the following options for '%s':\n", name)
+	if len(d.Select) == 0 {
+		return "", fmt.Errorf("no template to select")
+	}
 
-		for i, s := range d.Select {
-			contentStr, err := g.makeAndExecToStr(name, s, d.Context)
+	var parsedContent string
+	if len(d.Select) > 0 {
+		selected := 0
+		if seq != nil && seq.n == name {
+			selected = seq.i
+		} else {
+			Redf("Please select one of the following template for '%s':\n", name)
+
+			for i, s := range d.Select {
+				msg := color.Bluef("Option %d: %s\n", i+1, fp)
+				msg += color.Greenf("%s\n\n", s)
+				fmt.Printf(msg)
+			}
+
+			fmt.Printf("Enter the option number: ")
+
+			_, err = fmt.Scanln(&selected)
 			if err != nil {
 				return "", err
 			}
 
-			msg := fmt.Sprintf("Option %d: %s", i+1, fp)
-			msg = color.Blue + msg + color.Reset
-			msg += "\n" + color.Green + contentStr + color.Reset + "\n"
-			fmt.Printf(msg)
+			if selected < 1 || selected > len(d.Select) {
+				return "", fmt.Errorf("invalid option selected")
+			}
 		}
 
-		fmt.Printf("Enter the option number: ")
-		_, err = fmt.Scan(&selectedOpt)
-		if err != nil {
+		decl := d.Select[selected-1]
+		if err = d.tryProvideCtx(decl.Require); err != nil {
 			return "", err
 		}
 
-		if selectedOpt < 1 || selectedOpt > len(d.Select) {
-			return "", fmt.Errorf("invalid option selected")
+		parsedContent, err = g.parseTemplate(name, decl.Template, d.Context)
+		if err != nil {
+			return "", err
 		}
-
-		tmplStr = d.Select[selectedOpt-1]
 	}
 
+	// no confirm, no modify file, just print the content.
 	if g.cfg.dryRun {
-		contentStr, err := g.makeAndExecToStr(name, tmplStr, d.Context)
-		if err != nil {
-			return "", err
-		}
-
-		msg := fmt.Sprintf("== DRY RUN: %s ==", fp)
-		msg = color.Blue + msg + color.Reset
-		msg += "\n" + color.Blue + d.Description + color.Reset + "\n" + color.Green + contentStr + color.Reset + "\n"
-		fmt.Printf(msg)
+		Bluef("== DRY RUN: %s ==\n%s\n", fp, d.Description)
+		Greenf("%s\n", parsedContent)
 		return "", nil
 	}
 
 	if d.Confirm {
-		contentStr, err := g.makeAndExecToStr(name, tmplStr, d.Context)
-		if err != nil {
-			return "", err
-		}
-
-		msg := fmt.Sprintf("== Modified file content: %s ==", fp)
-		msg = color.Blue + msg + color.Reset
-		msg += "\n" + color.Blue + d.Description + color.Reset + "\n" + color.Green + contentStr + color.Reset + "\n"
-		fmt.Printf(msg)
-		msg = fmt.Sprintf("Do you want to run the template '%s'? (y/N)\n", name)
-		msg = color.Red + msg + color.Reset
-		fmt.Printf(msg)
+		Bluef("== Will modify content: %s ==\n", fp)
+		Greenf("%s\n", parsedContent)
+		Redf("Do you want to apply template '%s'? (y/N)\n", name)
 
 		var confirm = ""
-		_, err = fmt.Scan(&confirm)
+		_, err = fmt.Scanln(&confirm)
 		if err != nil {
 			return "", err
 		}
 
+		// if confirm is empty, it will be treated as "N" and not run the template.
 		switch confirm {
 		case "y", "Y", "true", "1":
 		default:
@@ -283,60 +355,46 @@ func (g *Gojen) buildTemplate(name string, d *D) (string, error) {
 		}
 	}
 
-	file, err := openFileWithStrategy(fp, d.Strategy, 0644)
+	if err := makeDirAll(fp); err != nil {
+		return "", err
+	}
+
+	found, err := appendFileAtLine(fp, func(l string) bool {
+		return strings.TrimSpace(l) == fmt.Sprintf("// +gojen:append-template=%s", name)
+	}, parsedContent)
+	if err != nil {
+		return "", err
+	}
+
+	if found {
+		fmt.Printf("modified '%s'\n", fp)
+		return fp, nil
+	}
+
+	fflags := os.O_CREATE | os.O_RDWR
+	switch d.Strategy {
+	case StrategyTrunc:
+		fflags |= os.O_TRUNC
+	case StrategyAppend:
+		fflags |= os.O_APPEND
+	case StrategyIgnore:
+		_, err := os.Stat(fp)
+		if err != nil {
+			if os.IsNotExist(err) {
+				fflags |= os.O_APPEND
+			}
+		} else {
+			fmt.Printf("skipped to modify '%s'. This file is exist.\n", fp)
+		}
+	}
+
+	file, err := os.OpenFile(fp, fflags, 0644)
 	if err != nil {
 		return "", err
 	}
 	defer file.Close()
 
-	if d.Strategy == StrategyAppend {
-		appendMark := fmt.Sprintf("// +gojen:append=%s", name)
-		pos := -1
-
-		// Use bufio.Scanner to scan the file and collect lines
-		scanner := bufio.NewScanner(file)
-		lines := []string{}
-		for i := 0; scanner.Scan(); i++ {
-			if pos == -1 && strings.HasPrefix(strings.TrimSpace(scanner.Text()), appendMark) {
-				pos = i
-			}
-			lines = append(lines, scanner.Text())
-		}
-
-		if err := scanner.Err(); err != nil {
-			return "", err
-		}
-
-		if pos != -1 {
-			// magic mark found, generate content
-			contentStr, err := g.makeAndExecToStr(name, tmplStr, d.Context)
-			if err != nil {
-				return "", err
-			}
-
-			// Efficiently replace lines at the found position
-			lines = append(lines[:pos], append(strings.Split(contentStr, "\n"), lines[pos:]...)...)
-		}
-
-		// Seek to the beginning of the file and truncate it
-		if err := file.Truncate(0); err != nil {
-			return "", err
-		}
-
-		if _, err := file.Seek(0, 0); err != nil {
-			return "", err
-		}
-
-		// Write the new content
-		if _, err := file.WriteString(strings.Join(lines, "\n")); err != nil {
-			return "", err
-		}
-
-		fmt.Printf("modified '%s'\n", fp)
-		return fp, nil
-	}
-
-	if err := g.makeAndExec(name, tmplStr, file, d.Context); err != nil {
+	if _, err := file.Write([]byte(parsedContent)); err != nil {
 		return "", err
 	}
 
@@ -344,7 +402,7 @@ func (g *Gojen) buildTemplate(name string, d *D) (string, error) {
 	return fp, nil
 }
 
-func (g *Gojen) ListTemplateUsages() map[string][]string {
+func (g *Gojen) makeTmplUsages() map[string][]string {
 	res := map[string][]string{}
 
 	for k, v := range g.defs {
@@ -365,9 +423,26 @@ func (g *Gojen) ListTemplateUsages() map[string][]string {
 	return res
 }
 
-func (g *Gojen) PrintParsedTemplateUsages() {
-	usages := g.ListTemplateUsages()
-	for k, v := range usages {
+// PrintUsages prints the usages to the cli.
+func (g *Gojen) PrintUsages() {
+	Bluef("Usage: go run main.go [flags]\n")
+	if g.cfg.parseArgs {
+		flag.PrintDefaults()
+	}
+	if len(g.cfg.customPipeline) > 0 {
+		Bluef("Current pipelines:\n")
+		for k := range g.cfg.customPipeline {
+			fmt.Printf("  + %s\n", k)
+		}
+	}
+
+	tmplUsages := g.makeTmplUsages()
+	if len(tmplUsages) == 0 {
+		Bluef("No template definitions found.\n")
+		return
+	}
+	Bluef("Template Usages:\n")
+	for k, v := range tmplUsages {
 		fmt.Printf("- Template: '%s'\n", k)
 		for _, u := range v {
 			fmt.Printf("  + %s\n", u)
@@ -378,12 +453,14 @@ func (g *Gojen) PrintParsedTemplateUsages() {
 // Build builds the templates.
 func (g *Gojen) Build(tmplNames ...string) error {
 	defs := g.defs
-	if len(tmplNames) > 0 {
-		defs = filterMap(defs, tmplNames)
+
+	useTmpls := append(g.useTmpls, tmplNames...)
+	if len(useTmpls) > 0 {
+		defs = filterMap(defs, useTmpls)
 	}
 
 	for name, def := range defs {
-		f, err := g.buildTemplate(name, def)
+		f, err := g.buildTemplate(name, def, nil)
 		if err != nil {
 			return err
 		}
@@ -391,6 +468,63 @@ func (g *Gojen) Build(tmplNames ...string) error {
 		if f != "" {
 			g.ModifiedFiles = append(g.ModifiedFiles, f)
 		}
+	}
+
+	return nil
+}
+
+type sequence struct {
+	n    string
+	i    int
+	next *sequence
+	root *sequence
+}
+
+// S returns a new sequence.
+func S(n string, i int) *sequence {
+	s := &sequence{
+		n: n,
+		i: i,
+	}
+
+	s.root = s
+
+	return s
+}
+
+func (s *sequence) S(n string, i int) *sequence {
+	s.next = &sequence{
+		n:    n,
+		i:    i,
+		root: s.root,
+	}
+
+	return s.next
+}
+
+// BuildSeqs builds the templates in sequence.
+func (g *Gojen) BuildSeqs(seq *sequence, tmplNames ...string) error {
+	defs := g.defs
+
+	useTmpls := append(g.useTmpls, tmplNames...)
+	if len(useTmpls) > 0 {
+		defs = filterMap(defs, useTmpls)
+	}
+
+	s := seq.root
+	for s != nil {
+		def, exists := defs[s.n]
+		if !exists {
+			return fmt.Errorf("template '%s' not found", s.n)
+		}
+		f, err := g.buildTemplate(s.n, def, s)
+		if err != nil {
+			return err
+		}
+		if f != "" {
+			g.ModifiedFiles = append(g.ModifiedFiles, f)
+		}
+		s = s.next
 	}
 
 	return nil
