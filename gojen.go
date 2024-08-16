@@ -8,8 +8,8 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/danielgtaylor/casing"
 	"github.com/gertd/go-pluralize"
-	"github.com/iancoleman/strcase"
 	"github.com/spf13/cobra"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
@@ -77,17 +77,45 @@ func NewWithConfig(cfg *Config) *Gojen {
 		titleCaser:   tc,
 		pluralize:    pl,
 		tmplFuncs: template.FuncMap{
-			"singular":   pl.Singular,
-			"plural":     pl.Plural,
-			"title":      tc.String,
-			"lower":      strings.ToLower,
-			"upper":      strings.ToUpper,
-			"snake":      strcase.ToSnake,
-			"titleSnake": strcase.ToScreamingSnake,
-			"camel":      strcase.ToCamel,
-			"lowerCamel": strcase.ToLowerCamel,
-			"kebab":      strcase.ToKebab,
-			"titleKebab": strcase.ToScreamingKebab,
+			"singular": pl.Singular,
+			"plural":   pl.Plural,
+
+			"title": tc.String,
+
+			"lower": strings.ToLower,
+			"upper": strings.ToUpper,
+
+			"snake":  casing.Snake,
+			"sSnake": func(s string) string { return casing.Snake(pl.Singular(s)) },
+			"pSnake": func(s string) string { return casing.Snake(pl.Plural(s)) },
+
+			"titleSnake":  func(s string) string { return casing.Snake(s, strings.ToUpper) },
+			"sTitleSnake": func(s string) string { return casing.Snake(pl.Singular(s), strings.ToUpper) },
+			"pTitleSnake": func(s string) string { return casing.Snake(pl.Plural(s), strings.ToUpper) },
+
+			"initialism": casing.Initialism,
+			"identity":   casing.Identity,
+
+			"camel":     casing.Camel,
+			"sCamel":    func(s string) string { return casing.Camel(pl.Singular(s)) },
+			"pCamel":    func(s string) string { return casing.Camel(pl.Plural(s)) },
+			"iniCamel":  func(s string) string { return casing.Camel(s, casing.Initialism) },
+			"siniCamel": func(s string) string { return casing.Camel(pl.Singular(s), casing.Initialism) },
+			"piniCamel": func(s string) string { return casing.Camel(pl.Plural(s), casing.Initialism) },
+
+			"lowerCamel":     casing.LowerCamel,
+			"sLowerCamel":    func(s string) string { return casing.LowerCamel(pl.Singular(s)) },
+			"pLowerCamel":    func(s string) string { return casing.LowerCamel(pl.Plural(s)) },
+			"iniLowerCamel":  func(s string) string { return casing.LowerCamel(s, casing.Initialism) },
+			"siniLowerCamel": func(s string) string { return casing.LowerCamel(pl.Singular(s), casing.Initialism) },
+			"piniLowerCamel": func(s string) string { return casing.LowerCamel(pl.Plural(s), casing.Initialism) },
+
+			"kebab":       casing.Kebab,
+			"sKebab":      func(s string) string { return casing.Kebab(pl.Singular(s)) },
+			"pKebab":      func(s string) string { return casing.Kebab(pl.Plural(s)) },
+			"titleKebab":  func(s string) string { return casing.Kebab(s, strings.ToUpper) },
+			"sTitleKebab": func(s string) string { return casing.Kebab(pl.Singular(s), strings.ToUpper) },
+			"pTitleKebab": func(s string) string { return casing.Kebab(pl.Plural(s), strings.ToUpper) },
 		},
 
 		usage: &strings.Builder{},
@@ -211,7 +239,7 @@ func (g *Gojen) LoadDef(fp string) error {
 	return nil
 }
 
-// SetPluralRules sets the plural rules for the strcase package.
+// SetPluralRules sets the plural rules for the casing package.
 func (g *Gojen) SetPluralRules(rt PluralizeType, rules map[string]string) {
 	for k, v := range rules {
 		switch rt {

@@ -3,7 +3,6 @@ package gojen
 import (
 	"encoding/json"
 	"fmt"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -35,32 +34,6 @@ func makeDirAll(path string) error {
 	}
 
 	return nil
-}
-
-func openFileWithStrategy(path string, strategy Strategy, perm fs.FileMode) (*os.File, error) {
-	if err := makeDirAll(path); err != nil {
-		return nil, err
-	}
-
-	flags := os.O_CREATE | os.O_RDWR
-
-	switch strategy {
-	case StrategyTrunc:
-		flags |= os.O_TRUNC
-	case StrategyAppend:
-		flags |= os.O_APPEND
-	case StrategyIgnore:
-		_, err := os.Stat(path)
-		if err != nil {
-			if os.IsNotExist(err) {
-				flags |= os.O_APPEND
-			}
-		} else {
-			fmt.Printf("skipped to modify '%s'. This file is exist.\n", path)
-		}
-	}
-
-	return os.OpenFile(path, flags, perm)
 }
 
 func readFileContent(path string) ([]byte, error) {

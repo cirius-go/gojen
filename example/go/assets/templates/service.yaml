@@ -7,11 +7,11 @@ select:
 - template: |-
     package service
 
-    // {{ camel .Domain | singular }} service.
-    type {{ camel .Domain | singular }} struct {
+    // {{ siniCamel .Domain }} service.
+    type {{ siniCamel .Domain }} struct {
     }
 
-    // Please select option 2,3 to append service method for service '{{ camel .Domain | singular }}'.
+    // Please select option 2,3 to append service method for service '{{ siniCamel .Domain }}'.
     // +gojen:append-template=service
   require:
   - Domain
@@ -19,8 +19,8 @@ select:
   confirm: false
 - template: |2-
 
-    // {{ camel .Method | singular }} method of '{{ camel .Domain | singular }}' service.
-    func (s *{{ camel .Domain | singular }}) {{ camel .Method | singular }}(ctx context.Context, req *dto.{{ camel .Method | singular }}{{ camel .Domain | singular }}Req) (*dto.{{ camel .Method | singular }}{{ camel .Domain | singular }}Res, error) {
+    // {{ siniCamel .Method }} method of '{{ siniCamel .Domain }}' service.
+    func (s *{{ siniCamel .Domain }}) {{ siniCamel .Method }}(ctx context.Context, req *dto.{{ siniCamel .Method }}{{ siniCamel .Domain }}Req) (*dto.{{ siniCamel .Method }}{{ siniCamel .Domain }}Res, error) {
       panic("not implemented")
     }
   require:
@@ -29,28 +29,28 @@ select:
   strategy: append
   confirm: true
 - template: |-
-    // Create new '{{ camel .Domain | singular }}'.
-    func (s *{{ camel .Domain | singular }}) Create(ctx context.Context, req *dto.Create{{ camel .Domain | singular }}Req) (*dto.Create{{ camel .Domain | singular }}Res, error) {
+    // Create new '{{ siniCamel .Domain }}'.
+    func (s *{{ siniCamel .Domain }}) Create(ctx context.Context, req *dto.Create{{ siniCamel .Domain }}Req) (*dto.Create{{ siniCamel .Domain }}Res, error) {
       panic("not implemented")
     }
 
-    // List all '{{ camel .Domain | plural }}'.
-    func (s *{{ camel .Domain | singular }}) List(ctx context.Context, req *dto.List{{ camel .Domain | plural }}Req) (*dto.List{{ camel .Domain | plural }}Res, error) {
+    // List all '{{ piniCamel .Domain }}'.
+    func (s *{{ siniCamel .Domain }}) List(ctx context.Context, req *dto.List{{ piniCamel .Domain }}Req) (*dto.List{{ piniCamel .Domain }}Res, error) {
       panic("not implemented")
     }
 
-    // Get one of '{{ camel .Domain | plural }}'.
-    func (s *{{ camel .Domain | singular }}) Get(ctx context.Context, req *dto.Get{{ camel .Domain | singular }}Req) (*dto.Get{{ camel .Domain | singular }}Res, error) {
+    // Get one of '{{ piniCamel .Domain }}'.
+    func (s *{{ siniCamel .Domain }}) Get(ctx context.Context, req *dto.Get{{ siniCamel .Domain }}Req) (*dto.Get{{ siniCamel .Domain }}Res, error) {
       panic("not implemented")
     }
 
-    // Update one of '{{ camel .Domain | plural }}'.
-    func (s *{{ camel .Domain | singular }}) Update(ctx context.Context, req *dto.Update{{ camel .Domain | singular }}Req) (*dto.Update{{ camel .Domain | singular }}Res, error) {
+    // Update one of '{{ piniCamel .Domain }}'.
+    func (s *{{ siniCamel .Domain }}) Update(ctx context.Context, req *dto.Update{{ siniCamel .Domain }}Req) (*dto.Update{{ siniCamel .Domain }}Res, error) {
       panic("not implemented")
     }
 
-    // Delete one of '{{ camel .Domain | plural }}'.
-    func (s *{{ camel .Domain | singular }}) Delete(ctx context.Context, req *dto.Delete{{ camel .Domain | singular }}Req) (*dto.Delete{{ camel .Domain | singular }}Res, error) {
+    // Delete one of '{{ piniCamel .Domain }}'.
+    func (s *{{ siniCamel .Domain }}) Delete(ctx context.Context, req *dto.Delete{{ siniCamel .Domain }}Req) (*dto.Delete{{ siniCamel .Domain }}Res, error) {
       panic("not implemented")
     }
   require:
