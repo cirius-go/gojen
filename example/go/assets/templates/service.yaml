@@ -1,0 +1,61 @@
+path: example/go/internal/service/{{ lower .Domain | singular }}.go
+require:
+- Domain
+name: service
+context: {}
+select:
+- template: |-
+    package service
+
+    // {{ camel .Domain | singular }} service.
+    type {{ camel .Domain | singular }} struct {
+    }
+
+    // Please select option 2,3 to append service method for service '{{ camel .Domain | singular }}'.
+    // +gojen:append-template=service
+  require:
+  - Domain
+  strategy: ignore
+  confirm: false
+- template: |2-
+
+    // {{ camel .Method | singular }} method of '{{ camel .Domain | singular }}' service.
+    func (s *{{ camel .Domain | singular }}) {{ camel .Method | singular }}(ctx context.Context, req *dto.{{ camel .Method | singular }}{{ camel .Domain | singular }}Req) (*dto.{{ camel .Method | singular }}{{ camel .Domain | singular }}Res, error) {
+      panic("not implemented")
+    }
+  require:
+  - Domain
+  - Method
+  strategy: append
+  confirm: true
+- template: |-
+    // Create new '{{ camel .Domain | singular }}'.
+    func (s *{{ camel .Domain | singular }}) Create(ctx context.Context, req *dto.Create{{ camel .Domain | singular }}Req) (*dto.Create{{ camel .Domain | singular }}Res, error) {
+      panic("not implemented")
+    }
+
+    // List all '{{ camel .Domain | plural }}'.
+    func (s *{{ camel .Domain | singular }}) List(ctx context.Context, req *dto.List{{ camel .Domain | plural }}Req) (*dto.List{{ camel .Domain | plural }}Res, error) {
+      panic("not implemented")
+    }
+
+    // Get one of '{{ camel .Domain | plural }}'.
+    func (s *{{ camel .Domain | singular }}) Get(ctx context.Context, req *dto.Get{{ camel .Domain | singular }}Req) (*dto.Get{{ camel .Domain | singular }}Res, error) {
+      panic("not implemented")
+    }
+
+    // Update one of '{{ camel .Domain | plural }}'.
+    func (s *{{ camel .Domain | singular }}) Update(ctx context.Context, req *dto.Update{{ camel .Domain | singular }}Req) (*dto.Update{{ camel .Domain | singular }}Res, error) {
+      panic("not implemented")
+    }
+
+    // Delete one of '{{ camel .Domain | plural }}'.
+    func (s *{{ camel .Domain | singular }}) Delete(ctx context.Context, req *dto.Delete{{ camel .Domain | singular }}Req) (*dto.Delete{{ camel .Domain | singular }}Res, error) {
+      panic("not implemented")
+    }
+  require:
+  - Domain
+  strategy: append
+  confirm: true
+dependencies: []
+description: Generate a service file or append a service method.

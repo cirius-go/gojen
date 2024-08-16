@@ -14,12 +14,13 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
+	"gopkg.in/yaml.v2"
 
 	"github.com/cirius-go/gojen/color"
 )
 
 // Strategy is a type that represents the strategy for setting a template.
-// ENUM(trunc,append,ignore)
+// ENUM(trunc,append,append_at_last,ignore)
 // trunc: Truncate the destination file. (please commit this file to git before running gojen)
 // append: Append at the end to the destination file.
 // ignore: Ignore the destination file.
@@ -62,6 +63,10 @@ func NewWithConfig(cfg *Config) *Gojen {
 	}
 	pl := pluralize.NewClient()
 	tc := cases.Title(language.AmericanEnglish)
+
+	// special case...
+	pl.AddIrregularRule("staff", "Staffs")
+	pl.AddIrregularRule("Staff", "Staffs")
 
 	g := &Gojen{
 		cfg:          cfg,
@@ -117,6 +122,17 @@ func NewWithConfig(cfg *Config) *Gojen {
 	return g
 }
 
+func (g *Gojen) AddMoreCommand(cmds ...*cobra.Command) {
+	if !g.cfg.parseArgs {
+		fmt.Println("'parseArgs' is disabled. Skipping to add more commands.")
+		return
+	}
+
+	for _, c := range cmds {
+		g.argCMD.AddCommand(c)
+	}
+}
+
 // LoadDir loads template definitions from a directory.
 func (g *Gojen) LoadDir(dir string) error {
 	if dir == "" {
@@ -142,7 +158,8 @@ func (g *Gojen) LoadDir(dir string) error {
 			continue
 		}
 
-		if !strings.HasSuffix(file.Name(), ".json") {
+		ext := filepath.Ext(file.Name())
+		if ext != ".json" && ext != ".yaml" && ext != ".yml" {
 			continue
 		}
 
@@ -164,8 +181,19 @@ func (g *Gojen) LoadDef(fp string) error {
 		return err
 	}
 	defer file.Close()
+	ext := filepath.Ext(fp)
+
+	var decoder interface{ Decode(v any) error }
+
+	switch ext {
+	case ".yaml", ".yml":
+		decoder = yaml.NewDecoder(file)
+	case ".json":
+		decoder = json.NewDecoder(file)
+	}
+
 	d := &D{}
-	if err := json.NewDecoder(file).Decode(&d); err != nil {
+	if err := decoder.Decode(&d); err != nil {
 		return err
 	}
 	if d.Name == "" {
@@ -201,8 +229,15 @@ func (g *Gojen) SetTemplate(name string, template *D) *D {
 		return nil
 	}
 
-	if !template.Strategy.IsValid() {
-		template.Strategy = StrategyAppend
+	for _, s := range template.Select {
+		// only set the default strategy if it is empty.
+		if s.Strategy == "" {
+			s.Strategy = StrategyIgnore
+		}
+
+		if !s.Strategy.IsValid() {
+			panic(fmt.Sprintf("invalid strategy: %s", s.Strategy))
+		}
 	}
 
 	if len(template.Dependencies) > 0 {
@@ -292,7 +327,11 @@ func (g *Gojen) buildTemplate(name string, d *D, seq *sequence) (string, error) 
 		return "", fmt.Errorf("no template to select")
 	}
 
-	var parsedContent string
+	var (
+		parsedContent string
+		strategy      Strategy
+		confirm       bool
+	)
 	if len(d.Select) > 0 {
 		selected := 0
 		if seq != nil && seq.n == name {
@@ -322,11 +361,17 @@ func (g *Gojen) buildTemplate(name string, d *D, seq *sequence) (string, error) 
 		if err = d.tryProvideCtx(decl.Require); err != nil {
 			return "", err
 		}
-
 		parsedContent, err = g.parseTemplate(name, decl.Template, d.Context)
 		if err != nil {
 			return "", err
 		}
+
+		strategy = decl.Strategy
+		confirm = decl.Confirm
+	}
+
+	if !strategy.IsValid() {
+		return "", fmt.Errorf("invalid handle file strategy")
 	}
 
 	// no confirm, no modify file, just print the content.
@@ -336,7 +381,7 @@ func (g *Gojen) buildTemplate(name string, d *D, seq *sequence) (string, error) 
 		return "", nil
 	}
 
-	if d.Confirm {
+	if confirm {
 		Bluef("== Will modify content: %s ==\n", fp)
 		Greenf("%s\n", parsedContent)
 		Redf("Do you want to apply template '%s'? (y/N)\n", name)
@@ -359,23 +404,28 @@ func (g *Gojen) buildTemplate(name string, d *D, seq *sequence) (string, error) 
 		return "", err
 	}
 
-	found, err := appendFileAtLine(fp, func(l string) bool {
-		return strings.TrimSpace(l) == fmt.Sprintf("// +gojen:append-template=%s", name)
-	}, parsedContent)
-	if err != nil {
-		return "", err
-	}
+	// special case for append.
+	if strategy == StrategyAppend {
+		found, err := handleOnStrategyAppend(fp, func(l string) bool {
+			return strings.TrimSpace(l) == fmt.Sprintf("// +gojen:append-template=%s", name)
+		}, parsedContent)
+		if err != nil {
+			return "", err
+		}
 
-	if found {
-		fmt.Printf("modified '%s'\n", fp)
-		return fp, nil
+		if found {
+			fmt.Printf("modified '%s'\n", fp)
+			return fp, nil
+		}
+
+		return "", fmt.Errorf("'%s' not found in the file", fmt.Sprintf("// +gojen:append-template=%s", name))
 	}
 
 	fflags := os.O_CREATE | os.O_RDWR
-	switch d.Strategy {
+	switch strategy {
 	case StrategyTrunc:
 		fflags |= os.O_TRUNC
-	case StrategyAppend:
+	case StrategyAppendAtLast:
 		fflags |= os.O_APPEND
 	case StrategyIgnore:
 		_, err := os.Stat(fp)
@@ -500,6 +550,54 @@ func (s *sequence) S(n string, i int) *sequence {
 	}
 
 	return s.next
+}
+
+// WriteDir writes definitions to a directory.
+func (g *Gojen) WriteDir(dir string, ext string) error {
+	if ext != ".json" && ext != ".yaml" && ext != ".yml" {
+		return fmt.Errorf("invalid file extension: %s", ext)
+	}
+
+	wd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+
+	dir = filepath.Join(wd, dir)
+	if err := makeDirAll(dir); err != nil {
+		return err
+	}
+
+	for k, v := range g.defs {
+		if err := func() error {
+			fp := filepath.Join(dir, fmt.Sprintf("%s%s", k, ext))
+			file, err := os.Create(fp)
+			if err != nil {
+				return err
+			}
+			defer file.Close()
+
+			var encoder interface{ Encode(v any) error }
+			switch ext {
+			case ".yaml", ".yml":
+				encoder = yaml.NewEncoder(file)
+			default:
+				encoder = json.NewEncoder(file)
+			}
+
+			if err := encoder.Encode(v); err != nil {
+				return err
+			}
+
+			fmt.Printf("written template definition to: %s\n", fp)
+			return nil
+		}(); err != nil {
+			return err
+		}
+
+	}
+
+	return nil
 }
 
 // BuildSeqs builds the templates in sequence.

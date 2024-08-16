@@ -24,7 +24,12 @@ func loadJSON[K any](jsonPath string, v *K) error {
 }
 
 func makeDirAll(path string) error {
-	dir, _ := filepath.Split(path)
+	dir := path
+	ext := filepath.Ext(path)
+	if ext != "" {
+		dir, _ = filepath.Split(path)
+	}
+
 	if err := os.MkdirAll(dir, os.ModePerm); err != nil {
 		return err
 	}
@@ -84,7 +89,7 @@ func readLines(path string) ([]string, error) {
 	return strings.Split(string(content), "\n"), nil
 }
 
-func appendFileAtLine(path string, predicate func(l string) bool, content string) (bool, error) {
+func handleOnStrategyAppend(path string, predicate func(l string) bool, content string) (bool, error) {
 	stat, err := os.Stat(path)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -125,7 +130,7 @@ func appendFileAtLine(path string, predicate func(l string) bool, content string
 	if !strings.HasSuffix(content, "\n") {
 		content += "\n"
 	}
-	fcontent := strings.Join(first, "\n") + "\n" + content + strings.Join(last, "\n")
+	fcontent := strings.Join(first, "\n") + "\n\n" + content + strings.Join(last, "\n") + "\n\n"
 
 	f, err := os.OpenFile(path, os.O_RDWR|os.O_TRUNC, 0644)
 	if err != nil {

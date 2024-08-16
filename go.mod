@@ -3,11 +3,13 @@ module github.com/cirius-go/gojen
 go 1.22.2
 
 require (
+	github.com/cirius-go/generic v0.2.39
 	github.com/gertd/go-pluralize v0.2.1
 	github.com/iancoleman/strcase v0.3.0
 	github.com/spf13/cobra v1.8.1
 	github.com/stretchr/testify v1.9.0
 	golang.org/x/text v0.16.0
+	gopkg.in/yaml.v2 v2.4.0
 )
 
 require (

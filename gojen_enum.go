@@ -90,6 +90,8 @@ const (
 	StrategyTrunc Strategy = "trunc"
 	// StrategyAppend is a Strategy of type append.
 	StrategyAppend Strategy = "append"
+	// StrategyAppendAtLast is a Strategy of type append_at_last.
+	StrategyAppendAtLast Strategy = "append_at_last"
 	// StrategyIgnore is a Strategy of type ignore.
 	StrategyIgnore Strategy = "ignore"
 )
@@ -99,6 +101,7 @@ var ErrInvalidStrategy = fmt.Errorf("not a valid Strategy, try [%s]", strings.Jo
 var _StrategyNames = []string{
 	string(StrategyTrunc),
 	string(StrategyAppend),
+	string(StrategyAppendAtLast),
 	string(StrategyIgnore),
 }
 
@@ -114,6 +117,7 @@ func StrategyValues() []Strategy {
 	return []Strategy{
 		StrategyTrunc,
 		StrategyAppend,
+		StrategyAppendAtLast,
 		StrategyIgnore,
 	}
 }
@@ -131,9 +135,10 @@ func (x Strategy) IsValid() bool {
 }
 
 var _StrategyValue = map[string]Strategy{
-	"trunc":  StrategyTrunc,
-	"append": StrategyAppend,
-	"ignore": StrategyIgnore,
+	"trunc":          StrategyTrunc,
+	"append":         StrategyAppend,
+	"append_at_last": StrategyAppendAtLast,
+	"ignore":         StrategyIgnore,
 }
 
 // ParseStrategy attempts to convert a string to a Strategy.
