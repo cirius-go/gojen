@@ -2,7 +2,6 @@ package gojen
 
 import (
 	"encoding/json"
-	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -47,6 +46,8 @@ type Gojen struct {
 	pluralize  *pluralize.Client
 	tmplFuncs  template.FuncMap
 	argCMD     *cobra.Command
+
+	usage *strings.Builder
 }
 
 // New returns a new Gojen instance.
@@ -88,34 +89,37 @@ func NewWithConfig(cfg *Config) *Gojen {
 			"kebab":      strcase.ToKebab,
 			"titleKebab": strcase.ToScreamingKebab,
 		},
-		argCMD: &cobra.Command{
-			Use:   "gojen",
-			Short: "gojen is a code generator that uses Go templates.",
-		},
+
+		usage: &strings.Builder{},
 	}
-
-	g.argCMD.AddCommand(&cobra.Command{
-		Use:   "ctx",
-		Short: "context to be used in the template",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			for _, arg := range args {
-				c := map[string]any{}
-				if err := json.Unmarshal([]byte(arg), &c); err != nil {
-					return err
-				}
-
-				g.context = mergeMaps(g.context, c)
-			}
-
-			return nil
-		},
-	})
 
 	if len(g.cfg.customPipeline) > 0 {
 		g.tmplFuncs = mergeMaps(g.tmplFuncs, g.cfg.customPipeline)
 	}
 
 	if cfg.parseArgs {
+		g.argCMD = &cobra.Command{
+			Use:   "gojen",
+			Short: "gojen is a code generator that uses Go templates.",
+		}
+
+		g.argCMD.AddCommand(&cobra.Command{
+			Use:   "ctx",
+			Short: "context to be used in the template",
+			RunE: func(cmd *cobra.Command, args []string) error {
+				for _, arg := range args {
+					c := map[string]any{}
+					if err := json.Unmarshal([]byte(arg), &c); err != nil {
+						return err
+					}
+
+					g.context = mergeMaps(g.context, c)
+				}
+
+				return nil
+			},
+		})
+
 		g.argCMD.Execute()
 	}
 
@@ -168,7 +172,6 @@ func (g *Gojen) LoadDir(dir string) error {
 			return err
 		}
 
-		fmt.Println("Loaded template definition from:", fp)
 	}
 
 	return nil
@@ -200,10 +203,11 @@ func (g *Gojen) LoadDef(fp string) error {
 		return fmt.Errorf("name of template is required")
 	}
 	if g.defs[d.Name] != nil {
-		fmt.Printf("template '%s' already exists. Skipped to import definition from: %s\n", d.Name, fp)
+		Redf("Template '%s' already exists. Skipped to import: '%s'\n", d.Name, fp)
 		return nil
 	}
 	g.defs[d.Name] = d
+	Bluef("Loaded template definition from: '%s'\n", fp)
 	return nil
 }
 
@@ -341,7 +345,7 @@ func (g *Gojen) buildTemplate(name string, d *D, seq *sequence) (string, error) 
 
 			for i, s := range d.Select {
 				msg := color.Bluef("Option %d: %s\n", i+1, fp)
-				msg += color.Greenf("%s\n\n", s)
+				msg += color.Greenf("%s\n\n", s.Template)
 				fmt.Printf(msg)
 			}
 
@@ -463,41 +467,45 @@ func (g *Gojen) makeTmplUsages() map[string][]string {
 		res[k] = append(res[k], v.Description)
 		if len(v.Dependencies) > 0 {
 			res[k] = append(res[k], "Dependencies: ")
+
+			for _, dep := range v.Dependencies {
+				res[k] = append(res[k], fmt.Sprintf("'%s'", dep))
+			}
 		}
 
-		for _, dep := range v.Dependencies {
-			res[k] = append(res[k], fmt.Sprintf("'%s'", dep))
+		if len(v.Select) > 0 {
+			res[k] = append(res[k], "Select: ")
+			for i, s := range v.Select {
+				res[k] = append(res[k], fmt.Sprintf("  Option %d uses '%s' strategy and requires context: %s", i+1, s.Strategy, strings.Join(s.Require, ", ")))
+			}
 		}
 	}
 
 	return res
 }
 
-// PrintUsages prints the usages to the cli.
-func (g *Gojen) PrintUsages() {
-	Bluef("Usage: go run main.go [flags]\n")
-	if g.cfg.parseArgs {
-		flag.PrintDefaults()
-	}
+func (g *Gojen) PrintTemplateUsage() {
 	if len(g.cfg.customPipeline) > 0 {
-		Bluef("Current pipelines:\n")
+		g.usage.WriteString(color.Bluef("Current pipelines:\n"))
 		for k := range g.cfg.customPipeline {
-			fmt.Printf("  + %s\n", k)
+			g.usage.WriteString(fmt.Sprintf("  + %s\n", k))
 		}
 	}
 
 	tmplUsages := g.makeTmplUsages()
 	if len(tmplUsages) == 0 {
-		Bluef("No template definitions found.\n")
+		g.usage.WriteString(color.Bluef("No template definitions found.\n"))
 		return
 	}
-	Bluef("Template Usages:\n")
+	g.usage.WriteString(color.Bluef("Template Usages:\n"))
 	for k, v := range tmplUsages {
-		fmt.Printf("- Template: '%s'\n", k)
+		g.usage.WriteString(fmt.Sprintf("- Template: '%s'\n", k))
 		for _, u := range v {
-			fmt.Printf("  + %s\n", u)
+			g.usage.WriteString(fmt.Sprintf("  + %s\n", u))
 		}
 	}
+
+	fmt.Println(g.usage.String())
 }
 
 // Build builds the templates.

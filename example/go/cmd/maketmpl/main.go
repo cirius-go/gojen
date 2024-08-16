@@ -5,7 +5,7 @@ import "github.com/cirius-go/gojen"
 func main() {
 	c := gojen.C().SetDryRun(false).ParseArgs(true).SetDebug(true)
 	g := gojen.NewWithConfig(c)
-	g.PrintUsages()
+	g.PrintTemplateUsage()
 
 	g.SetTemplate("service", &gojen.D{
 		Path:        "example/go/internal/service/{{ lower .Domain | singular }}.go",
