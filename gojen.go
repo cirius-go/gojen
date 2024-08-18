@@ -367,12 +367,16 @@ func (g *Gojen) buildTemplate(name string, d *D, seq *sequence) (string, error) 
 	if len(d.Select) > 0 {
 		selected := 0
 
-		if seq != nil && seq.n == name && seq.i != nil {
-			selected = *seq.i
+		items := d.Select
+		if seq != nil {
+			items = seq.filterDItems(name, items)
+		}
+
+		if len(items) == 1 {
+			selected = 1
 		} else {
 			Redf("Please select one of the following template for '%s':\n", name)
-
-			for i, s := range d.Select {
+			for i, s := range items {
 				msg := color.Bluef("Option %d: %s\n", i+1, fp)
 				msg += color.Greenf("%s\n\n", s.Template)
 				fmt.Printf(msg)
@@ -562,20 +566,34 @@ func (g *Gojen) Build(tmplNames ...string) error {
 
 type sequence struct {
 	n    string
-	i    *int
+	is   []int
 	next *sequence
 	root *sequence
 }
 
+func (s *sequence) filterDItems(name string, items []*DItem) []*DItem {
+	if len(s.is) == 0 || s.n != name {
+		return items
+	}
+	var res []*DItem
+	for _, i := range s.is {
+		if i-1 >= len(items) {
+			continue
+		}
+
+		if items[i-1] != nil {
+			res = append(res, items[i-1])
+		}
+	}
+
+	return res
+}
+
 // S returns a new sequence.
 func S(n string, is ...int) *sequence {
-	var i *int
-	if len(is) > 0 {
-		i = &is[0]
-	}
 	s := &sequence{
-		n: n,
-		i: i,
+		n:  n,
+		is: is,
 	}
 
 	s.root = s
@@ -584,13 +602,9 @@ func S(n string, is ...int) *sequence {
 }
 
 func (s *sequence) S(n string, is ...int) *sequence {
-	var i *int
-	if len(is) > 0 {
-		i = &is[0]
-	}
 	s.next = &sequence{
 		n:    n,
-		i:    i,
+		is:   is,
 		root: s.root,
 	}
 
