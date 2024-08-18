@@ -400,7 +400,7 @@ func (g *Gojen) buildTemplate(name string, d *D, seq *sequence) (string, error) 
 			selected = input
 		}
 
-		decl := d.Select[selected-1]
+		decl := items[selected-1]
 		if err = d.tryProvideCtx(decl.Require); err != nil {
 			return "", err
 		}
