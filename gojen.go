@@ -366,8 +366,9 @@ func (g *Gojen) buildTemplate(name string, d *D, seq *sequence) (string, error) 
 	)
 	if len(d.Select) > 0 {
 		selected := 0
-		if seq != nil && seq.n == name {
-			selected = seq.i
+
+		if seq != nil && seq.n == name && seq.i != nil {
+			selected = *seq.i
 		} else {
 			Redf("Please select one of the following template for '%s':\n", name)
 
@@ -561,13 +562,17 @@ func (g *Gojen) Build(tmplNames ...string) error {
 
 type sequence struct {
 	n    string
-	i    int
+	i    *int
 	next *sequence
 	root *sequence
 }
 
 // S returns a new sequence.
-func S(n string, i int) *sequence {
+func S(n string, is ...int) *sequence {
+	var i *int
+	if len(is) > 0 {
+		i = &is[0]
+	}
 	s := &sequence{
 		n: n,
 		i: i,
@@ -578,7 +583,11 @@ func S(n string, i int) *sequence {
 	return s
 }
 
-func (s *sequence) S(n string, i int) *sequence {
+func (s *sequence) S(n string, is ...int) *sequence {
+	var i *int
+	if len(is) > 0 {
+		i = &is[0]
+	}
 	s.next = &sequence{
 		n:    n,
 		i:    i,
