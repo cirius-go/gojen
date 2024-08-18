@@ -372,6 +372,10 @@ func (g *Gojen) buildTemplate(name string, d *D, seq *sequence) (string, error) 
 			items = seq.filterDItems(name, items)
 		}
 
+		if len(items) == 0 {
+			return "", nil
+		}
+
 		if len(items) == 1 {
 			selected = 1
 		} else {
@@ -383,15 +387,17 @@ func (g *Gojen) buildTemplate(name string, d *D, seq *sequence) (string, error) 
 			}
 
 			fmt.Printf("Enter the option number: ")
-
-			_, err = fmt.Scanln(&selected)
+			input := 0
+			_, err = fmt.Scanln(&input)
 			if err != nil {
 				return "", err
 			}
 
-			if selected < 1 || selected > len(d.Select) {
+			if input < 1 || input-1 >= len(d.Select) {
 				return "", fmt.Errorf("invalid option selected")
 			}
+
+			selected = input
 		}
 
 		decl := d.Select[selected-1]
