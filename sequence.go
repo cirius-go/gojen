@@ -13,7 +13,7 @@ type sequence struct {
 }
 
 // S returns a new sequence.
-func S(n string, is ...int) Sequence {
+func S(n string, is ...int) *sequence {
 	s := &sequence{
 		n:  n,
 		is: is,
