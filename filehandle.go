@@ -1,39 +1,24 @@
 package gojen
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 )
 
-func loadJSON[K any](jsonPath string, v *K) error {
-	f, err := os.Open(jsonPath)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	if err := json.NewDecoder(f).Decode(v); err != nil {
-		return err
-	}
-
-	return nil
-}
-
+// makeDirAll creates directory and its parents if not exist.
 func makeDirAll(path string) error {
-	dir := path
-	ext := filepath.Ext(path)
-	if ext != "" {
-		dir, _ = filepath.Split(path)
+	if path == "" {
+		return fmt.Errorf("path cannot be empty")
 	}
 
-	if err := os.MkdirAll(dir, os.ModePerm); err != nil {
-		return err
+	dir := filepath.Dir(path)
+	if dir == "." || dir == "" {
+		return nil // No directory to create if it's just a file name
 	}
 
-	return nil
+	return os.MkdirAll(dir, os.ModePerm)
 }
 
 func readFileContent(path string) ([]byte, error) {
@@ -51,15 +36,6 @@ func readFileContent(path string) ([]byte, error) {
 	}
 
 	return os.ReadFile(path)
-}
-
-func readLines(path string) ([]string, error) {
-	content, err := readFileContent(path)
-	if err != nil {
-		return nil, err
-	}
-
-	return strings.Split(string(content), "\n"), nil
 }
 
 func handleOnStrategyAppend(path string, predicate func(l string) bool, content string) (bool, error) {
@@ -100,10 +76,7 @@ func handleOnStrategyAppend(path string, predicate func(l string) bool, content 
 
 	first := lines[:loc]
 	last := lines[loc:]
-	if !strings.HasSuffix(content, "\n") {
-		content += "\n"
-	}
-	fcontent := strings.Join(first, "\n") + "\n\n" + content + strings.Join(last, "\n") + "\n\n"
+	fcontent := strings.Join(first, "\n") + "\n\n" + content + "\n" + strings.Join(last, "\n")
 
 	f, err := os.OpenFile(path, os.O_RDWR|os.O_TRUNC, 0644)
 	if err != nil {

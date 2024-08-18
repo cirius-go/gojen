@@ -36,9 +36,9 @@ type PluralizeType string
 type Gojen struct {
 	ModifiedFiles []string
 
-	cfg          *Config
+	cfg          *config
 	context      map[string]any
-	defs         map[string]*D
+	defs         M
 	dependencies map[string][]string
 
 	useTmpls   []string
@@ -58,7 +58,7 @@ func New() *Gojen {
 }
 
 // NewWithConfig returns a new Gojen instance.
-func NewWithConfig(cfg *Config) *Gojen {
+func NewWithConfig(cfg *config) *Gojen {
 	if cfg == nil {
 		panic("config is required")
 	}
@@ -80,10 +80,20 @@ func NewWithConfig(cfg *Config) *Gojen {
 			"singular": pl.Singular,
 			"plural":   pl.Plural,
 
-			"title": tc.String,
+			"s": pl.Singular,
+			"p": pl.Plural,
 
-			"lower": strings.ToLower,
-			"upper": strings.ToUpper,
+			"title":  tc.String,
+			"sTitle": func(s string) string { return tc.String(pl.Singular(s)) },
+			"pTitle": func(s string) string { return tc.String(pl.Plural(s)) },
+
+			"lower":  strings.ToLower,
+			"sLower": func(s string) string { return strings.ToLower(pl.Singular(s)) },
+			"pLower": func(s string) string { return strings.ToLower(pl.Plural(s)) },
+
+			"upper":  strings.ToUpper,
+			"sUpper": func(s string) string { return strings.ToUpper(pl.Singular(s)) },
+			"pUpper": func(s string) string { return strings.ToUpper(pl.Plural(s)) },
 
 			"snake":  casing.Snake,
 			"sSnake": func(s string) string { return casing.Snake(pl.Singular(s)) },
@@ -100,15 +110,15 @@ func NewWithConfig(cfg *Config) *Gojen {
 			"sCamel":    func(s string) string { return casing.Camel(pl.Singular(s)) },
 			"pCamel":    func(s string) string { return casing.Camel(pl.Plural(s)) },
 			"iniCamel":  func(s string) string { return casing.Camel(s, casing.Initialism) },
-			"siniCamel": func(s string) string { return casing.Camel(pl.Singular(s), casing.Initialism) },
-			"piniCamel": func(s string) string { return casing.Camel(pl.Plural(s), casing.Initialism) },
+			"sIniCamel": func(s string) string { return casing.Camel(pl.Singular(s), casing.Initialism) },
+			"pIniCamel": func(s string) string { return casing.Camel(pl.Plural(s), casing.Initialism) },
 
 			"lowerCamel":     casing.LowerCamel,
 			"sLowerCamel":    func(s string) string { return casing.LowerCamel(pl.Singular(s)) },
 			"pLowerCamel":    func(s string) string { return casing.LowerCamel(pl.Plural(s)) },
 			"iniLowerCamel":  func(s string) string { return casing.LowerCamel(s, casing.Initialism) },
-			"siniLowerCamel": func(s string) string { return casing.LowerCamel(pl.Singular(s), casing.Initialism) },
-			"piniLowerCamel": func(s string) string { return casing.LowerCamel(pl.Plural(s), casing.Initialism) },
+			"sIniLowerCamel": func(s string) string { return casing.LowerCamel(pl.Singular(s), casing.Initialism) },
+			"pIniLowerCamel": func(s string) string { return casing.LowerCamel(pl.Plural(s), casing.Initialism) },
 
 			"kebab":       casing.Kebab,
 			"sKebab":      func(s string) string { return casing.Kebab(pl.Singular(s)) },
@@ -117,7 +127,6 @@ func NewWithConfig(cfg *Config) *Gojen {
 			"sTitleKebab": func(s string) string { return casing.Kebab(pl.Singular(s), strings.ToUpper) },
 			"pTitleKebab": func(s string) string { return casing.Kebab(pl.Plural(s), strings.ToUpper) },
 		},
-
 		usage: &strings.Builder{},
 	}
 
@@ -154,7 +163,10 @@ func NewWithConfig(cfg *Config) *Gojen {
 	return g
 }
 
-func (g *Gojen) AddMoreCommand(cmds ...*cobra.Command) {
+// AddCommand wraps the cobra command.
+//
+// if parseArgs config is disabled, it will not add the command.
+func (g *Gojen) AddCommand(cmds ...*cobra.Command) {
 	if !g.cfg.parseArgs {
 		fmt.Println("'parseArgs' is disabled. Skipping to add more commands.")
 		return
@@ -165,8 +177,8 @@ func (g *Gojen) AddMoreCommand(cmds ...*cobra.Command) {
 	}
 }
 
-// LoadDir loads template definitions from a directory.
-func (g *Gojen) LoadDir(dir string) error {
+// WalkDir loads template definitions from a directory.
+func (g *Gojen) WalkDir(dir string) error {
 	if dir == "" {
 		return nil
 	}
@@ -196,17 +208,16 @@ func (g *Gojen) LoadDir(dir string) error {
 		}
 
 		fp := filepath.Join(dir, file.Name())
-		if err := g.LoadDef(fp); err != nil {
+		if err := g.LoadD(fp); err != nil {
 			return err
 		}
-
 	}
 
 	return nil
 }
 
-// LoadDef loads a template definition from a file.
-func (g *Gojen) LoadDef(fp string) error {
+// LoadD loads a template definition from a file.
+func (g *Gojen) LoadD(fp string) error {
 	file, err := os.Open(fp)
 	if err != nil {
 		return err
@@ -215,7 +226,6 @@ func (g *Gojen) LoadDef(fp string) error {
 	ext := filepath.Ext(fp)
 
 	var decoder interface{ Decode(v any) error }
-
 	switch ext {
 	case ".yaml", ".yml":
 		decoder = yaml.NewDecoder(file)
@@ -256,28 +266,16 @@ func (g *Gojen) SetPluralRules(rt PluralizeType, rules map[string]string) {
 }
 
 // SetTemplate sets a template.
-func (g *Gojen) SetTemplate(name string, template *D) *D {
-	if template == nil {
-		return nil
+func (g *Gojen) SetTemplate(template *D) *D {
+	// perform DFS to detect cycles in the dependency graph.
+	name := template.Name
+	if name == "" {
+		panic("name of template is required")
 	}
-
-	for _, s := range template.Select {
-		// only set the default strategy if it is empty.
-		if s.Strategy == "" {
-			s.Strategy = StrategyIgnore
-		}
-
-		if !s.Strategy.IsValid() {
-			panic(fmt.Sprintf("invalid strategy: %s", s.Strategy))
-		}
-	}
-
 	if len(template.Dependencies) > 0 {
 		if _, exists := g.dependencies[name]; !exists {
 			g.dependencies[name] = template.Dependencies
 		}
-
-		// Check for dependency cycles using DFS
 		visited := map[string]bool{}
 		stack := map[string]bool{}
 		if g.hasCycle(name, visited, stack) {
@@ -285,9 +283,7 @@ func (g *Gojen) SetTemplate(name string, template *D) *D {
 		}
 	}
 
-	template.Name = name
-	g.defs[name] = template
-
+	g.defs.Store(template)
 	return template
 }
 
@@ -313,18 +309,22 @@ func (g *Gojen) hasCycle(current string, visited map[string]bool, stack map[stri
 	return false
 }
 
-// AddContext adds a key-value pair to the context map.
+// AddContext adds a key-value pair to the existing context map.
 func (g *Gojen) AddContext(key string, value any) {
 	g.context[key] = value
 }
 
-// SetContext sets the context map.
+// SetContext overrites the context map.
 func (g *Gojen) SetContext(ctx map[string]any) {
+	// better than nil
+	if ctx == nil {
+		ctx = make(map[string]any)
+	}
 	g.context = ctx
 }
 
-// parseTemplate creates, executes a template, and returns the result as a string.
-func (g *Gojen) parseTemplate(name string, templateString string, ctx map[string]any) (string, error) {
+// parseTmpl creates, executes a template and returns the result as a string.
+func (g *Gojen) parseTmpl(name string, templateString string, ctx map[string]any) (string, error) {
 	t, err := template.New(name).Funcs(g.tmplFuncs).Option("missingkey=zero").Parse(templateString)
 	if err != nil {
 		return "", err
@@ -340,159 +340,96 @@ func (g *Gojen) parseTemplate(name string, templateString string, ctx map[string
 
 // buildTemplate builds a template.
 // It returns the path of the modified file and an error if any.
-func (g *Gojen) buildTemplate(name string, d *D, seq *sequence) (string, error) {
+func (g *Gojen) buildTemplate(name string, d *D, seq *sequence) (string, *D, error) {
 	Redf("== Building template: %s ==\n", name)
+
 	// Prepare the context for template 'd'
+	if seq != nil {
+		d = d.clone() // clone the template to avoid modifying the original context.
+	}
+	// merge the global context with the template context.
 	d = d.mergeContext(g.context)
 
-	if err := d.tryProvideCtx(d.Require); err != nil {
-		return "", err
+	// ask for missing context values
+	if err := d.provideRequireCtx(d.Required); err != nil {
+		return "", nil, err
 	}
 
-	// make the file path with context.
-	fp, err := g.parseTemplate(d.Path, d.Path, d.Context)
+	// Generate file path with the context
+	fp, err := g.parseTmpl(d.Path, d.Path, d.Context)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 
-	if len(d.Select) == 0 {
-		return "", fmt.Errorf("no template to select")
+	e, err := d.performSelect(fp, seq)
+	if err != nil {
+		return "", nil, err
 	}
 
-	var (
-		parsedContent string
-		strategy      Strategy
-		confirm       bool
-	)
-	if len(d.Select) > 0 {
-		selected := 0
-
-		items := d.Select
-		if seq != nil {
-			items = seq.filterDItems(name, items)
-		}
-
-		if len(items) == 0 {
-			return "", nil
-		}
-
-		if len(items) == 1 {
-			selected = 1
-		} else {
-			Redf("Please select one of the following template for '%s':\n", name)
-			for i, s := range items {
-				msg := color.Bluef("Option %d: %s\n", i+1, fp)
-				msg += color.Greenf("%s\n\n", s.Template)
-				fmt.Printf(msg)
-			}
-
-			fmt.Printf("Enter the option number: ")
-			input := 0
-			_, err = fmt.Scanln(&input)
-			if err != nil {
-				return "", err
-			}
-
-			if input < 1 || input-1 >= len(d.Select) {
-				return "", fmt.Errorf("invalid option selected")
-			}
-
-			selected = input
-		}
-
-		decl := items[selected-1]
-		if err = d.tryProvideCtx(decl.Require); err != nil {
-			return "", err
-		}
-		parsedContent, err = g.parseTemplate(name, decl.Template, d.Context)
-		if err != nil {
-			return "", err
-		}
-
-		strategy = decl.Strategy
-		confirm = decl.Confirm
+	if e == nil {
+		return "", d, nil
 	}
 
-	if !strategy.IsValid() {
-		return "", fmt.Errorf("invalid handle file strategy")
+	// Parse the template from decl with the context
+	parsedContent, err := g.parseTmpl(name, e.Template, d.Context)
+	if err != nil {
+		return "", nil, err
 	}
 
-	// no confirm, no modify file, just print the content.
+	// If dry run is enabled, print the parsed content and do nothing to the file.
 	if g.cfg.dryRun {
 		Bluef("== DRY RUN: %s ==\n%s\n", fp, d.Description)
 		Greenf("%s\n", parsedContent)
-		return "", nil
+		return "", d, nil
 	}
 
-	if confirm {
+	// Confirm if needed
+	if e.Confirm {
 		Bluef("== Will modify content: %s ==\n", fp)
 		Greenf("%s\n", parsedContent)
 		Redf("Do you want to apply template '%s'? (y/N)\n", name)
 
-		var confirm = ""
-		_, err = fmt.Scanln(&confirm)
-		if err != nil {
-			return "", err
-		}
-
-		// if confirm is empty, it will be treated as "N" and not run the template.
-		switch confirm {
-		case "y", "Y", "true", "1":
-		default:
-			return "", nil
+		var confirm string
+		if _, err = fmt.Scanln(&confirm); err != nil || !isConfirmed(confirm) {
+			return "", d, nil
 		}
 	}
 
+	// ensure the directory exists
 	if err := makeDirAll(fp); err != nil {
-		return "", err
+		return "", nil, err
 	}
 
-	// special case for append.
-	if strategy == StrategyAppend {
+	if e.Strategy == StrategyAppend {
 		found, err := handleOnStrategyAppend(fp, func(l string) bool {
 			return strings.TrimSpace(l) == fmt.Sprintf("// +gojen:append-template=%s", name)
 		}, parsedContent)
 		if err != nil {
-			return "", err
+			return "", nil, err
 		}
-
 		if found {
 			fmt.Printf("modified '%s'\n", fp)
-			return fp, nil
+			return fp, d, nil
 		}
-
-		return "", fmt.Errorf("'%s' not found in the file", fmt.Sprintf("// +gojen:append-template=%s", name))
+		return "", nil, fmt.Errorf("'%s' not found in the file", fmt.Sprintf("// +gojen:append-template=%s", name))
 	}
 
-	fflags := os.O_CREATE | os.O_RDWR
-	switch strategy {
-	case StrategyTrunc:
-		fflags |= os.O_TRUNC
-	case StrategyAppendAtLast:
-		fflags |= os.O_APPEND
-	case StrategyIgnore:
-		_, err := os.Stat(fp)
-		if err != nil {
-			if os.IsNotExist(err) {
-				fflags |= os.O_APPEND
-			}
-		} else {
-			fmt.Printf("skipped to modify '%s'. This file is exist.\n", fp)
-		}
+	fflags := getFileFlags(fp, e.Strategy)
+	if fflags == 0 {
+		return "", d, nil
 	}
-
 	file, err := os.OpenFile(fp, fflags, 0644)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 	defer file.Close()
 
 	if _, err := file.Write([]byte(parsedContent)); err != nil {
-		return "", err
+		return "", nil, err
 	}
 
 	fmt.Printf("modified '%s'\n", fp)
-	return fp, nil
+	return fp, d, nil
 }
 
 func (g *Gojen) makeTmplUsages() map[string][]string {
@@ -557,7 +494,7 @@ func (g *Gojen) Build(tmplNames ...string) error {
 	}
 
 	for name, def := range defs {
-		f, err := g.buildTemplate(name, def, nil)
+		f, _, err := g.buildTemplate(name, def, nil)
 		if err != nil {
 			return err
 		}
@@ -568,53 +505,6 @@ func (g *Gojen) Build(tmplNames ...string) error {
 	}
 
 	return nil
-}
-
-type sequence struct {
-	n    string
-	is   []int
-	next *sequence
-	root *sequence
-}
-
-func (s *sequence) filterDItems(name string, items []*DItem) []*DItem {
-	if len(s.is) == 0 || s.n != name {
-		return items
-	}
-	var res []*DItem
-	for _, i := range s.is {
-		if i-1 >= len(items) {
-			continue
-		}
-
-		if items[i-1] != nil {
-			res = append(res, items[i-1])
-		}
-	}
-
-	return res
-}
-
-// S returns a new sequence.
-func S(n string, is ...int) *sequence {
-	s := &sequence{
-		n:  n,
-		is: is,
-	}
-
-	s.root = s
-
-	return s
-}
-
-func (s *sequence) S(n string, is ...int) *sequence {
-	s.next = &sequence{
-		n:    n,
-		is:   is,
-		root: s.root,
-	}
-
-	return s.next
 }
 
 // WriteDir writes definitions to a directory.
@@ -629,7 +519,7 @@ func (g *Gojen) WriteDir(dir string, ext string) error {
 	}
 
 	dir = filepath.Join(wd, dir)
-	if err := makeDirAll(dir); err != nil {
+	if err := os.MkdirAll(dir, os.ModePerm); err != nil {
 		return err
 	}
 
@@ -659,7 +549,6 @@ func (g *Gojen) WriteDir(dir string, ext string) error {
 		}(); err != nil {
 			return err
 		}
-
 	}
 
 	return nil
@@ -674,20 +563,55 @@ func (g *Gojen) BuildSeqs(seq *sequence, tmplNames ...string) error {
 		defs = filterMap(defs, useTmpls)
 	}
 
-	s := seq.root
+	var (
+		s          = seq.root
+		forwardCtx = map[string]any{}
+	)
 	for s != nil {
-		def, exists := defs[s.n]
+		// select template and build.
+		d, exists := defs[s.n]
 		if !exists {
 			return fmt.Errorf("template '%s' not found", s.n)
 		}
-		f, err := g.buildTemplate(s.n, def, s)
+
+		if len(forwardCtx) > 0 {
+			d.Context = mergeMaps(d.Context, forwardCtx)
+		}
+
+		f, builtD, err := g.buildTemplate(s.n, d, s)
 		if err != nil {
 			return err
 		}
 		if f != "" {
 			g.ModifiedFiles = append(g.ModifiedFiles, f)
 		}
-		s = s.next
+
+		// forward ctx
+		if s.forwardCtx != nil {
+			if len(*s.forwardCtx) > 0 {
+				for _, fc := range *s.forwardCtx {
+					val, ok := builtD.Context[fc]
+					if !ok {
+						continue
+					}
+
+					forwardCtx[fc] = val
+				}
+			} else {
+				forwardCtx = mergeMaps(forwardCtx, builtD.Context)
+			}
+		}
+
+		if len(s.when) > 0 {
+			branch, ok := s.when[builtD.selectedTmpl]
+			if !ok {
+				s = s.next
+			} else {
+				s = branch.next
+			}
+		} else {
+			s = s.next
+		}
 	}
 
 	return nil

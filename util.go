@@ -3,7 +3,44 @@ package gojen
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 )
+
+func contains[T comparable](s []T, e T) bool {
+	for _, a := range s {
+		if a == e {
+			return true
+		}
+	}
+	return false
+}
+
+func toIntMap[T any](s []T) map[int]T {
+	res := make(map[int]T)
+	for i, v := range s {
+		res[i] = v
+	}
+
+	return res
+}
+
+func mapVals[K comparable, V any](m map[K]V) []V {
+	res := make([]V, 0, len(m))
+	for _, v := range m {
+		res = append(res, v)
+	}
+	return res
+}
+
+func findMapKey[K, V comparable](m map[K]V, v V) (K, bool) {
+	var k K
+	for k, val := range m {
+		if val == v {
+			return k, true
+		}
+	}
+	return k, false
+}
 
 func mergeMaps[K comparable, V any](maps ...map[K]V) map[K]V {
 	result := make(map[K]V)
@@ -43,4 +80,49 @@ func printJSON(v any) {
 	}
 
 	fmt.Println(string(b))
+}
+
+// Utility function to check confirmation input
+func isConfirmed(input string) bool {
+	switch input {
+	case "y", "Y", "true", "1":
+		return true
+	default:
+		return false
+	}
+}
+
+// Utility function to get file flags based on strategy
+func getFileFlags(fp string, strategy Strategy) int {
+	switch strategy {
+	case StrategyTrunc:
+		return os.O_TRUNC | os.O_CREATE | os.O_RDWR
+	case StrategyAppendAtLast:
+		return os.O_APPEND | os.O_CREATE | os.O_RDWR
+	case StrategyIgnore:
+		if _, err := os.Stat(fp); os.IsNotExist(err) {
+			return os.O_CREATE | os.O_RDWR
+		}
+		fmt.Printf("skipped to modify '%s'. This file exists.\n", fp)
+		return 0
+	default:
+		return 0
+	}
+}
+
+func cloneSlice[T any](s []T) []T {
+	if s == nil {
+		return nil
+	}
+	var result = make([]T, len(s))
+	copy(result, s)
+	return result
+}
+
+func cloneMap[K comparable, V any](m map[K]V) map[K]V {
+	result := make(map[K]V)
+	for k, v := range m {
+		result[k] = v
+	}
+	return result
 }

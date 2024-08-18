@@ -3,26 +3,100 @@ package main
 import "github.com/cirius-go/gojen"
 
 func main() {
-	c := gojen.C().SetDryRun(false).ParseArgs(true).SetDebug(true)
+	c := gojen.C().SetDryRun(false).ParseArgs(true)
 	g := gojen.NewWithConfig(c)
 	g.PrintTemplateUsage()
 
-	g.SetTemplate("service", &gojen.D{
-		Path:        "example/go/internal/service/{{ lower .Domain | singular }}.go",
-		Require:     []string{"Domain"},
+	g.SetTemplate(&gojen.D{
+		Path:     "example/go/internal/dto/{{ sLower .Domain }}.go",
+		Name:     "dto",
+		Required: []string{"Domain"},
+		Select: []*gojen.E{
+			{
+				Strategy: gojen.StrategyIgnore,
+				Require:  []string{"Domain"},
+				Confirm:  false,
+				Template: `package dto
+
+// DO NOT REMOVE THIS COMMENT
+// +gojen:append-template=dto`,
+			},
+			{
+				Strategy: gojen.StrategyAppend,
+				Require:  []string{"Domain", "Method"},
+				Confirm:  true,
+				Template: `// {{ sIniCamel .Method }}{{ sIniCamel .Domain }}Req represents the request body of '{{ sIniCamel .Domain }}.{{ sIniCamel .Method }}'.
+type {{ sIniCamel .Method }}{{ sIniCamel .Domain }}Req struct {
+}
+
+// {{ sIniCamel .Method }}{{ sIniCamel .Domain }}Res represents the response body of '{{ sIniCamel .Domain }}.{{ sIniCamel .Method }}'.
+type {{ sIniCamel .Method }}{{ sIniCamel .Domain }}Res struct {
+}`,
+			},
+			{
+				Strategy: gojen.StrategyAppend,
+				Require:  []string{"Domain"},
+				Confirm:  true,
+				Template: `// Create{{ sIniCamel .Domain }}Req represents the request body of '{{ sIniCamel .Domain }}.Create'.
+type Create{{ sIniCamel .Domain }}Req struct {
+}
+
+// Create{{ sIniCamel .Domain }}Res represents the response body of '{{ sIniCamel .Domain }}.Create'.
+type Create{{ sIniCamel .Domain }}Res struct {
+}
+
+// List{{ pIniCamel .Domain }}Req represents the request body of '{{ sIniCamel .Domain }}.List'.
+type List{{ pIniCamel .Domain }}Req struct {
+}
+
+// List{{ pIniCamel .Domain }}Res represents the response body of '{{ sIniCamel .Domain }}.List'.
+type List{{ pIniCamel .Domain }}Res struct {
+}
+
+// Get{{ sIniCamel .Domain }}Req represents the request body of '{{ sIniCamel .Domain }}.Get'.
+type Get{{ sIniCamel .Domain }}Req struct {
+}
+
+// Get{{ sIniCamel .Domain }}Res represents the response body of '{{ sIniCamel .Domain }}.Get'.
+type Get{{ sIniCamel .Domain }}Res struct {
+}
+
+// Update{{ sIniCamel .Domain }}Req represents the request body of '{{ sIniCamel .Domain }}.Update'.
+type Update{{ sIniCamel .Domain }}Req struct {
+}
+
+// Update{{ sIniCamel .Domain }}Res represents the response body of '{{ sIniCamel .Domain }}.Update'.
+type Update{{ sIniCamel .Domain }}Res struct {
+}
+
+// Delete{{ sIniCamel .Domain }}Req represents the request body of '{{ sIniCamel .Domain }}.Delete'.
+type Delete{{ sIniCamel .Domain }}Req struct {
+}
+
+// Delete{{ sIniCamel .Domain }}Res represents the response body of '{{ sIniCamel .Domain }}.Delete'.
+type Delete{{ sIniCamel .Domain }}Res struct {
+}`,
+			},
+		},
+	})
+
+	g.SetTemplate(&gojen.D{
+		Path:        "example/go/internal/service/{{ sLower .Domain }}.go",
+		Name:        "service",
+		Required:    []string{"Domain"},
 		Description: "Generate a service file or append a service method.",
-		Select: []*gojen.DItem{
+		Select: []*gojen.E{
 			{
 				Strategy: gojen.StrategyIgnore,
 				Require:  []string{"Domain"},
 				Confirm:  false,
 				Template: `package service
 
-// {{ siniCamel .Domain }} service.
-type {{ siniCamel .Domain }} struct {
+// {{ sIniCamel .Domain }} service.
+type {{ sIniCamel .Domain }} struct {
 }
 
-// Please select option 2,3 to append service method for service '{{ siniCamel .Domain }}'.
+// DO NOT REMOVE THIS COMMENT
 // +gojen:append-template=service`,
 			},
 			{
@@ -30,8 +104,8 @@ type {{ siniCamel .Domain }} struct {
 				Confirm:  true,
 				Require:  []string{"Domain", "Method"},
 				Template: `
-// {{ siniCamel .Method }} method of '{{ siniCamel .Domain }}' service.
-func (s *{{ siniCamel .Domain }}) {{ siniCamel .Method }}(ctx context.Context, req *dto.{{ siniCamel .Method }}{{ siniCamel .Domain }}Req) (*dto.{{ siniCamel .Method }}{{ siniCamel .Domain }}Res, error) {
+// {{ sIniCamel .Method }} method of '{{ sIniCamel .Domain }}' service.
+func (s *{{ sIniCamel .Domain }}) {{ sIniCamel .Method }}(ctx context.Context, req *dto.{{ sIniCamel .Method }}{{ sIniCamel .Domain }}Req) (*dto.{{ sIniCamel .Method }}{{ sIniCamel .Domain }}Res, error) {
   panic("not implemented")
 }`,
 			},
@@ -39,28 +113,28 @@ func (s *{{ siniCamel .Domain }}) {{ siniCamel .Method }}(ctx context.Context, r
 				Strategy: gojen.StrategyAppend,
 				Confirm:  true,
 				Require:  []string{"Domain"},
-				Template: `// Create new '{{ siniCamel .Domain }}'.
-func (s *{{ siniCamel .Domain }}) Create(ctx context.Context, req *dto.Create{{ siniCamel .Domain }}Req) (*dto.Create{{ siniCamel .Domain }}Res, error) {
+				Template: `// Create new '{{ sIniCamel .Domain }}'.
+func (s *{{ sIniCamel .Domain }}) Create(ctx context.Context, req *dto.Create{{ sIniCamel .Domain }}Req) (*dto.Create{{ sIniCamel .Domain }}Res, error) {
   panic("not implemented")
 }
 
-// List all '{{ piniCamel .Domain }}'.
-func (s *{{ siniCamel .Domain }}) List(ctx context.Context, req *dto.List{{ piniCamel .Domain }}Req) (*dto.List{{ piniCamel .Domain }}Res, error) {
+// List all '{{ pIniCamel .Domain }}'.
+func (s *{{ sIniCamel .Domain }}) List(ctx context.Context, req *dto.List{{ pIniCamel .Domain }}Req) (*dto.List{{ pIniCamel .Domain }}Res, error) {
   panic("not implemented")
 }
 
-// Get one of '{{ piniCamel .Domain }}'.
-func (s *{{ siniCamel .Domain }}) Get(ctx context.Context, req *dto.Get{{ siniCamel .Domain }}Req) (*dto.Get{{ siniCamel .Domain }}Res, error) {
+// Get one of '{{ pIniCamel .Domain }}'.
+func (s *{{ sIniCamel .Domain }}) Get(ctx context.Context, req *dto.Get{{ sIniCamel .Domain }}Req) (*dto.Get{{ sIniCamel .Domain }}Res, error) {
   panic("not implemented")
 }
 
-// Update one of '{{ piniCamel .Domain }}'.
-func (s *{{ siniCamel .Domain }}) Update(ctx context.Context, req *dto.Update{{ siniCamel .Domain }}Req) (*dto.Update{{ siniCamel .Domain }}Res, error) {
+// Update one of '{{ pIniCamel .Domain }}'.
+func (s *{{ sIniCamel .Domain }}) Update(ctx context.Context, req *dto.Update{{ sIniCamel .Domain }}Req) (*dto.Update{{ sIniCamel .Domain }}Res, error) {
   panic("not implemented")
 }
 
-// Delete one of '{{ piniCamel .Domain }}'.
-func (s *{{ siniCamel .Domain }}) Delete(ctx context.Context, req *dto.Delete{{ siniCamel .Domain }}Req) (*dto.Delete{{ siniCamel .Domain }}Res, error) {
+// Delete one of '{{ pIniCamel .Domain }}'.
+func (s *{{ sIniCamel .Domain }}) Delete(ctx context.Context, req *dto.Delete{{ sIniCamel .Domain }}Req) (*dto.Delete{{ sIniCamel .Domain }}Res, error) {
   panic("not implemented")
 }`,
 			},

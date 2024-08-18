@@ -1,15 +1,28 @@
 package main
 
-import "github.com/cirius-go/gojen"
+import (
+	"github.com/cirius-go/gojen"
+)
 
 func main() {
-	c := gojen.C().SetDryRun(true).ParseArgs(true).SetDebug(true)
+	c := gojen.C().SetDryRun(false).ParseArgs(true)
 	g := gojen.NewWithConfig(c)
 	g.PrintTemplateUsage()
-	g.LoadDir("example/go/assets/templates")
+	g.WalkDir("example/go/assets/templates")
 
-	s := gojen.S("service", 1).S("service", 2, 3)
-	if err := g.BuildSeqs(s); err != nil {
+	seq := gojen.
+		S("service", 1). // init
+		ForwardCtx("Domain").
+		S("service", 2, 3). // custom method or crud
+		ForwardCtx("Method").
+		When(2, func(sub gojen.Sequence) {
+			sub.S("dto", 1).S("dto", 2)
+		}).
+		When(3, func(sub gojen.Sequence) {
+			sub.S("dto", 1).S("dto", 3)
+		})
+
+	if err := g.BuildSeqs(seq); err != nil {
 		panic(err)
 	}
 }
