@@ -39,7 +39,7 @@ func (s *sequence) filter(els []*E) []*E {
 // M adds multiple sequences to the chain with the same 'D' name.
 func (s *sequence) M(n string, is ...int) *sequence {
 	for _, i := range is {
-		s = s.S(n, i)
+		s = s.ForwardCtx().S(n, i)
 	}
 
 	return s
