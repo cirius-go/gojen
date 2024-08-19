@@ -611,6 +611,8 @@ func (g *Gojen) BuildSeqs(seq *sequence, tmplNames ...string) error {
 			if !ok {
 				s = s.next
 			} else {
+				last := branch.last()
+				last.next = s.next
 				s = branch.next
 			}
 		} else {

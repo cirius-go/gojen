@@ -12,6 +12,21 @@ type sequence struct {
 	when       map[int]*sequence
 }
 
+func (s *sequence) last() *sequence {
+	if s.next == nil {
+		return s
+	}
+
+	for s.next != nil {
+		s = s.next
+		if s.next == nil {
+			return s
+		}
+	}
+
+	return s
+}
+
 // S returns a new sequence.
 func S(n string, is ...int) *sequence {
 	s := &sequence{
