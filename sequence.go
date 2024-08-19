@@ -40,12 +40,15 @@ func S(n string, is ...int) *sequence {
 }
 
 func (s *sequence) filter(els []*E) []*E {
+	if len(s.is) == 0 {
+		return els
+	}
+
 	res := make([]*E, 0)
 	for i := range els {
 		if contains(s.is, i+1) {
 			res = append(res, els[i])
 		}
-
 	}
 
 	return res
