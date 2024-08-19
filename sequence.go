@@ -36,7 +36,18 @@ func (s *sequence) filter(els []*E) []*E {
 	return res
 }
 
+// M adds multiple sequences to the chain with the same 'D' name.
+func (s *sequence) M(n string, is ...int) *sequence {
+	for _, i := range is {
+		s = s.S(n, i)
+	}
+
+	return s
+}
+
 // S adds new sequence to the chain.
+// Gojen will ask the user to select the sequence if there are multiple
+// options.
 func (s *sequence) S(n string, is ...int) *sequence {
 	next := &sequence{
 		n:    n,
