@@ -401,8 +401,12 @@ func (g *Gojen) buildTemplate(name string, d *D, seq *sequence) (string, *D, err
 	}
 
 	if e.Strategy == StrategyAppend {
+		parsedName, err := g.parseTmpl(name, name, d.Context)
+		if err != nil {
+			return "", nil, err
+		}
 		found, err := handleOnStrategyAppend(fp, func(l string) bool {
-			return strings.TrimSpace(l) == fmt.Sprintf("// +gojen:append-template=%s", name)
+			return strings.TrimSpace(l) == fmt.Sprintf("// +gojen:append-template=%s", parsedName)
 		}, parsedContent)
 		if err != nil {
 			return "", nil, err
@@ -411,7 +415,7 @@ func (g *Gojen) buildTemplate(name string, d *D, seq *sequence) (string, *D, err
 			fmt.Printf("modified '%s'\n", fp)
 			return fp, d, nil
 		}
-		return "", nil, fmt.Errorf("'%s' not found in the file", fmt.Sprintf("// +gojen:append-template=%s", name))
+		return "", nil, fmt.Errorf("'%s' not found in the file", fmt.Sprintf("// +gojen:append-template=%s", parsedName))
 	}
 
 	fflags := getFileFlags(fp, e.Strategy)
