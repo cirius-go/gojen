@@ -3,8 +3,25 @@ package gojen
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 )
+
+func recordFrom[K comparable, V comparable](d []K, predicates ...func(d int, v K) V) map[K]V {
+	res := make(map[K]V)
+	for i, v := range d {
+		if len(predicates) > 0 {
+			predicate := predicates[0]
+			if predicate != nil {
+				res[v] = predicate(i, v)
+			}
+		} else {
+			var t V
+			res[v] = t
+		}
+
+	}
+
+	return res
+}
 
 func contains[T comparable](s []T, e T) bool {
 	for _, a := range s {
@@ -89,24 +106,6 @@ func isConfirmed(input string) bool {
 		return true
 	default:
 		return false
-	}
-}
-
-// Utility function to get file flags based on strategy
-func getFileFlags(fp string, strategy Strategy) int {
-	switch strategy {
-	case StrategyTrunc:
-		return os.O_TRUNC | os.O_CREATE | os.O_RDWR
-	case StrategyAppendAtLast:
-		return os.O_APPEND | os.O_CREATE | os.O_RDWR
-	case StrategyIgnore:
-		if _, err := os.Stat(fp); os.IsNotExist(err) {
-			return os.O_CREATE | os.O_RDWR
-		}
-		fmt.Printf("skipped to modify '%s'. This file exists.\n", fp)
-		return 0
-	default:
-		return 0
 	}
 }
 

@@ -1,37 +1,34 @@
 package gojen
 
-// sequence is a struct that holds the sequence of the template.
-type sequence struct {
-	branch bool
+import (
+	"fmt"
+	"strings"
 
-	n          string
-	is         []int
-	forwardCtx *[]string
-	next       *sequence
-	root       *sequence
-	when       map[int]*sequence
+	"github.com/cirius-go/gojen/util"
+)
+
+// Seq reresents a sequence.
+type Seq struct {
+	root        *Seq                     `yaml:"-"`
+	DName       string                   `yaml:"d_name"`
+	EName       string                   `yaml:"e_name"`
+	ForwardArgs util.MapExisting[string] `yaml:"forward_args,omitempty"` // forward state for all children.
+	IsCase      bool                     `yaml:"is_case,omitempty"`      // is case.
+	Next        *Seq                     `yaml:"next,omitempty"`
+	Cases       SeqCases                 `yaml:"cases,omitempty"`
 }
 
-func (s *sequence) last() *sequence {
-	if s.next == nil {
-		return s
-	}
+// SeqCases is a map of cases.
+// Key is the eName.
+type SeqCases map[string]*Seq
 
-	for s.next != nil {
-		s = s.next
-		if s.next == nil {
-			return s
-		}
-	}
-
-	return s
-}
-
-// S returns a new sequence.
-func S(n string, is ...int) *sequence {
-	s := &sequence{
-		n:  n,
-		is: is,
+// NewSeq creates a new sequence.
+func NewSeq(dName, eName string) *Seq {
+	s := &Seq{
+		DName:       dName,
+		EName:       eName,
+		ForwardArgs: util.MapExisting[string]{},
+		Cases:       SeqCases{},
 	}
 
 	s.root = s
@@ -39,70 +36,119 @@ func S(n string, is ...int) *sequence {
 	return s
 }
 
-func (s *sequence) filter(els []*E) []*E {
-	if len(s.is) == 0 {
-		return els
+// AllLast returns all the last states of the sequence.
+func (s *Seq) AllLast() []*Seq {
+	res := []*Seq{}
+
+	// If the sequence has no cases, it's no braching.
+	if len(s.Cases) == 0 {
+		if s.Next == nil {
+			res = append(res, s)
+
+			return res
+		}
+
+		children := s.Next.AllLast()
+		res = append(res, children...)
+
+		return res
 	}
 
-	res := make([]*E, 0)
-	for i := range els {
-		if contains(s.is, i+1) {
-			res = append(res, els[i])
-		}
+	for _, c := range s.Cases {
+		children := c.AllLast()
+		res = append(res, children...)
 	}
 
 	return res
 }
 
-// M adds multiple sequences to the chain with the same 'D' name.
-func (s *sequence) M(n string, is ...int) *sequence {
-	for _, i := range is {
-		s = s.ForwardCtx().S(n, i)
+func (s *Seq) append(dName, eName string) *Seq {
+	n := NewSeq(dName, eName)
+	n.root = s.root
+	lasts := s.AllLast()
+	for _, l := range lasts {
+		l.Next = n
 	}
+	return n
+}
 
+func (s *Seq) Append(dName, eName string, moreENames ...string) *Seq {
+	n := s.append(dName, eName)
+	for _, eName := range moreENames {
+		n = n.append(dName, eName)
+	}
+	return n
+}
+
+func (s *Seq) Forward(argNames ...string) *Seq {
+	for _, argName := range argNames {
+		s.ForwardArgs.Add(argName)
+	}
 	return s
 }
 
-// S adds new sequence to the chain.
-// Gojen will ask the user to select the sequence if there are multiple
-// options.
-func (s *sequence) S(n string, is ...int) *sequence {
-	next := &sequence{
-		n:    n,
-		is:   is,
-		root: s.root,
+func (s *Seq) Select(dName string, eNames []string, handler func(ss SeqSwitcher)) *Seq {
+	if len(eNames) == 0 {
+		panic(fmt.Errorf("no element names provided for selection"))
 	}
-
-	if len(s.when) > 0 {
-		for _, w := range s.when {
-			w.next = next
+	for _, eName := range eNames {
+		c := NewSeq(dName, eName)
+		c.root = s.root
+		c.IsCase = true
+		if s.Cases == nil {
+			s.Cases = SeqCases{}
 		}
-	} else {
-		s.next = next
+		s.Cases[eName] = c
 	}
 
-	return next
-}
-
-// When adds a condition to the sequence.
-func (s *sequence) When(i int, thenFn func(sub Sequence)) *sequence {
-	if s.when == nil {
-		s.when = map[int]*sequence{}
-	}
-	s.when[i] = &sequence{
-		branch: true,
-		root:   s.root,
-	}
-
-	if thenFn != nil {
-		thenFn(s.when[i])
+	if handler != nil {
+		handler(s)
 	}
 
 	return s
 }
 
-// ForwardCtx forward current context to the next sequence to inherit.
-func (s *sequence) ForwardCtx(filteredNames ...string) *sequence {
-	s.forwardCtx = &filteredNames
+func (s *Seq) When(eName string, handler util.PRFunc[*Seq, *Seq]) SeqSwitcher {
+	if c, exists := s.Cases[eName]; exists {
+		return handler(c)
+	}
 	return s
+}
+
+func (s *Seq) String() string {
+	return strings.Join(s.root.string(""), "\n")
+}
+
+func (s *Seq) string(indent string) []string {
+	res := make([]string, 0) // contains all branch of seq.
+	var travel func(*Seq, string)
+
+	travel = func(n *Seq, indent string) {
+		myPath := fmt.Sprintf("%s -> %s.%s", indent, n.DName, n.EName)
+		if len(n.Cases) == 0 {
+			if n.Next == nil {
+				res = append(res, myPath)
+
+				// end of the branch.
+				return
+			}
+
+			// continue to the next state.
+			travel(n.Next, myPath)
+			return
+		}
+		myPath += " -> (select cases)"
+		res = append(res, myPath)
+		branchIndent := util.MkSpace(len(myPath))
+
+		i := 1
+		util.LoopStrMap(n.Cases, func(_ string, c *Seq) {
+			travel(c, branchIndent+fmt.Sprintf("%d)", i))
+			i++
+		})
+	}
+
+	travel(s, indent)
+
+	return res
 }

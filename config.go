@@ -2,14 +2,15 @@ package gojen
 
 import (
 	"os"
+	"path/filepath"
 )
 
 // config is a struct that holds the configuration for the Gojen instance.
 type config struct {
-	wd             string
-	dryRun         bool
-	parseArgs      bool
-	customPipeline map[string]any
+	silent       bool
+	wd           string
+	dryRun       bool
+	commentQuote string
 }
 
 // SetDryRun sets the dryRun field of the Config struct.
@@ -18,15 +19,26 @@ func (c *config) SetDryRun(dryRun bool) *config {
 	return c
 }
 
-// RegisterPipeline registers a custom pipeline for templates.
-func (c *config) RegisterPipeline(name string, pipeline any) *config {
-	c.customPipeline[name] = pipeline
+// SetCommentQuote sets the commentQuote field of the Config struct.
+func (c *config) SetCommentQuote(commentQuote string) *config {
+	c.commentQuote = commentQuote
 	return c
 }
 
-// ParseArgs sets the parseArgs field of the Config struct.
-func (c *config) ParseArgs(parseArgs bool) *config {
-	c.parseArgs = parseArgs
+// SetSilent sets the silent field of the Config struct.
+func (c *config) SetSilent(silent bool) *config {
+	c.silent = silent
+	return c
+}
+
+// TmpDir returns the temporary directory path.
+func (c *config) TmpDir() string {
+	return filepath.Join(c.wd, ".gojen", "tmp")
+}
+
+// SetWorkingDir sets the working directory of the Config struct.
+func (c *config) SetWorkingDir(wd string) *config {
+	c.wd = wd
 	return c
 }
 
@@ -37,9 +49,9 @@ func C() *config {
 		panic("could not get current working directory")
 	}
 	return &config{
-		wd:             wd,
-		dryRun:         false,
-		parseArgs:      false,
-		customPipeline: make(map[string]any),
+		silent:       false,
+		wd:           wd,
+		dryRun:       false,
+		commentQuote: "//",
 	}
 }
