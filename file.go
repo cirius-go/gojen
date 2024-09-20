@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/cirius-go/gojen/util"
 )
 
 type (
@@ -208,69 +210,81 @@ func (f *fileManager) CopyFile(src, dst string) error {
 	return nil
 }
 
-func (f *fileManager) getWordsFromFile(path string) (map[string]bool, []string, error) {
+func (f *fileManager) getLinesFromFile(path string) (map[string]bool, []string, error) {
 	content, err := os.ReadFile(path)
 	if err != nil {
 		return nil, nil, err
 	}
-	return f.getWords(string(content))
+	return f.getLines(string(content))
 }
 
-func (f *fileManager) getWords(content string) (map[string]bool, []string, error) {
-	words := make(map[string]bool)
-	var orderedWords []string
+func (f *fileManager) getLines(content string) (map[string]bool, []string, error) {
+	lines := make(map[string]bool)
+	var orderedLines []string
 	scanner := bufio.NewScanner(strings.NewReader(content))
-	scanner.Split(bufio.ScanWords)
 	for scanner.Scan() {
-		word := scanner.Text()
-		words[strings.ToLower(word)] = true
-		orderedWords = append(orderedWords, word)
+		line := strings.TrimSpace(scanner.Text())
+		if line != "" {
+			lines[strings.ToLower(line)] = true
+			orderedLines = append(orderedLines, line)
+		}
 	}
-	return words, orderedWords, scanner.Err()
+	return lines, orderedLines, scanner.Err()
 }
 
-func (f *fileManager) compareWords(wordsA, wordsB map[string]bool, orderedWordsB []string) (float64, string) {
-	commonWords := 0
-	for word := range wordsA {
-		if wordsB[word] {
-			commonWords++
-		}
+func (f *fileManager) compareLines(linesA, linesB []string, ignoreLines util.MapExisting[string]) (float64, string) {
+	minLen := len(linesA)
+	if len(linesB) < minLen {
+		minLen = len(linesB)
 	}
-	percentage := float64(commonWords) / float64(len(wordsA)) * 100
 
+	matchCount := 0
 	var highlighted strings.Builder
-	for _, word := range orderedWordsB {
-		if wordsA[strings.ToLower(word)] {
-			highlighted.WriteString(word)
+
+	lastPos := 0
+	for i := 0; i < len(linesA); i++ {
+		a := strings.TrimSpace(linesA[i])
+		if ignoreLines != nil && ignoreLines.Contains(a) {
+			continue
 		}
-		highlighted.WriteString(" ")
+
+		for j := lastPos; j < len(linesB); j++ {
+			b := strings.TrimSpace(linesB[j])
+			if a == b {
+				matchCount++
+				lastPos = j + 1
+				highlighted.WriteString(a + "\n")
+				break
+			}
+		}
 	}
 
+	percentage := float64(matchCount) / float64(len(linesA)) * 100
 	return percentage, highlighted.String()
 }
 
-func (f *fileManager) CompareContentWithFile(content, dst string) (percent float64, dstHighlighted string, err error) {
-	wordsA, _, err := f.getWords(content)
+func (f *fileManager) CompareContentWithFile(content, dst string, ignoreLines util.MapExisting[string]) (percent float64, dstHighlighted string, err error) {
+	_, orderedWordsA, err := f.getLines(content)
 	if err != nil {
 		return 0, "", err
 	}
-	wordsB, orderedWordsB, err := f.getWordsFromFile(dst)
+	_, orderedWordsB, err := f.getLinesFromFile(dst)
 	if err != nil {
 		return 0, "", err
 	}
-	percent, dstHighlighted = f.compareWords(wordsA, wordsB, orderedWordsB)
+	percent, dstHighlighted = f.compareLines(orderedWordsA, orderedWordsB, ignoreLines)
 	return
 }
 
-func (f *fileManager) CompareFile(src, dst string) (percent float64, dstHighlighted string, err error) {
-	wordsA, _, err := f.getWordsFromFile(src)
+func (f *fileManager) CompareFile(src, dst string, ignoreLines util.MapExisting[string]) (percent float64, dstHighlighted string, err error) {
+	_, orderedWordsA, err := f.getLinesFromFile(src)
 	if err != nil {
 		return 0, "", err
 	}
-	wordsB, orderedWordsB, err := f.getWordsFromFile(dst)
+	_, orderedWordsB, err := f.getLinesFromFile(dst)
 	if err != nil {
 		return 0, "", err
 	}
-	percent, dstHighlighted = f.compareWords(wordsA, wordsB, orderedWordsB)
+	percent, dstHighlighted = f.compareLines(orderedWordsA, orderedWordsB, ignoreLines)
 	return
 }

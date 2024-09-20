@@ -341,15 +341,14 @@ func (g *Gojen) applyState(s *State) (err error) {
 			return g.f.TruncWithContent(s.ParsedPath, s.ParsedTmpl)
 		}
 
-		percent, highlighted, err := g.f.CompareContentWithFile(s.ParsedTmpl, s.ParsedPath)
+		percent, highlighted, err := g.f.CompareContentWithFile(s.ParsedTmpl, s.ParsedPath, g.cfg.ignoreComparingLines)
 		if err != nil {
 			return err
 		}
 
 		if percent > 0 {
 			g.c.Dangerf(true, "Detected percent of same content %f of '%s':\n", percent, s.ParsedPath)
-			g.c.Printf(true, "%s\n", s.ParsedTmpl)
-			g.c.Dangerf(true, "%s\n", highlighted)
+			g.c.Printf(true, "%s\n", highlighted)
 			if ok := g.c.PerformYesNo("Do you still want to continue (y/N)? "); !ok {
 				return nil
 			}
@@ -365,15 +364,14 @@ func (g *Gojen) applyState(s *State) (err error) {
 			return nil
 		}
 
-		percent, highlighted, err := g.f.CompareContentWithFile(s.ParsedTmpl, s.ParsedPath)
+		percent, highlighted, err := g.f.CompareContentWithFile(s.ParsedTmpl, s.ParsedPath, g.cfg.ignoreComparingLines)
 		if err != nil {
 			return err
 		}
 
 		if percent > 0 {
 			g.c.Dangerf(true, "Detected percent of same content %f of '%s':\n", percent, s.ParsedPath)
-			g.c.Printf(true, "%s\n", s.ParsedTmpl)
-			g.c.Dangerf(true, "%s\n", highlighted)
+			g.c.Printf(true, "%s\n", highlighted)
 			if ok := g.c.PerformYesNo("Do you still want to continue (y/N)? "); !ok {
 				return nil
 			}
