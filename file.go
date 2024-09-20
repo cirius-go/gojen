@@ -23,6 +23,7 @@ func FileManagerC() *FileManagerConfig {
 	return &FileManagerConfig{}
 }
 
+// NewFileManager returns a new file manager instance.
 func NewFileManager() *fileManager {
 	c := FileManagerC()
 	return NewFileManagerWithConfig(c)
@@ -117,7 +118,7 @@ func (f *fileManager) CreateFileIfNotExist(path string, content string) (created
 
 // TruncWithContent truncates the file with the given content.
 func (f *fileManager) TruncWithContent(path string, content string) error {
-	return os.WriteFile(path, []byte(content), 0)
+	return os.WriteFile(path, []byte(content), 0644)
 }
 
 // FileExists checks if the file exists.
@@ -176,12 +177,31 @@ func (f *fileManager) AppendContentAfter(path string, lineIdent, content string)
 	// Join the lines back into a single string
 	newContent := strings.Join(newLines, "\n")
 
-	fmt.Println(newContent)
-
 	// Write the modified contents back to the file
 	err = os.WriteFile(path, []byte(newContent), 0644)
 	if err != nil {
 		return fmt.Errorf("error writing to file: %w", err)
+	}
+
+	return nil
+}
+
+func (f *fileManager) CopyFile(src, dst string) error {
+	srcFile, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer srcFile.Close()
+
+	dstFile, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer dstFile.Close()
+
+	_, err = srcFile.WriteTo(dstFile)
+	if err != nil {
+		return err
 	}
 
 	return nil

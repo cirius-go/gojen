@@ -1,6 +1,7 @@
 package util
 
 import (
+	"slices"
 	"sort"
 	"strings"
 )
@@ -80,4 +81,41 @@ func LoopStrMap[V any](m map[string]V, h func(string, V)) {
 	for _, k := range keys {
 		h(k, m[k])
 	}
+}
+
+func SortSlice[K, V comparable](orders []K, v []V, fn func(V) K) []V {
+	type pair struct {
+		order K
+		value V
+		index int
+	}
+
+	pairs := make([]pair, len(v))
+	for i, val := range v {
+		pairs[i] = pair{order: fn(val), value: val, index: i}
+	}
+
+	sort.Slice(pairs, func(i, j int) bool {
+		iIndex := slices.Index(orders, pairs[i].order)
+		jIndex := slices.Index(orders, pairs[j].order)
+
+		if iIndex == -1 && jIndex == -1 {
+			// If both are not in orders, maintain original order
+			return pairs[i].index < pairs[j].index
+		}
+		if iIndex == -1 {
+			return false // i goes to the end
+		}
+		if jIndex == -1 {
+			return true // j goes to the end
+		}
+		return iIndex < jIndex
+	})
+
+	result := make([]V, len(v))
+	for i, p := range pairs {
+		result[i] = p.value
+	}
+
+	return result
 }

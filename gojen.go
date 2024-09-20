@@ -4,9 +4,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"text/template"
+	"time"
 
 	"github.com/cirius-go/gojen/util"
 )
@@ -15,10 +18,14 @@ import (
 type Gojen struct {
 	cfg *config
 
-	p PipelineManager
+	P PipelineManager
 	f FileManager
 	s StoreManager
 	c ConsoleManager
+
+	// cached variable during build.
+	localStateDir string
+	Err           error
 }
 
 // New returns a new Gojen instance with default configuration.
@@ -46,12 +53,18 @@ func NewWithConfig(cfg *config) *Gojen {
 	storeCfg := StoreC()
 	s := NewStoreWithConfig(storeCfg, c, f)
 
+	var (
+		bNum          = time.Now().Format("20060102150405")
+		localStateDir = filepath.Join(cfg.storePath, bNum, "state")
+	)
+
 	g := &Gojen{
-		cfg: cfg,
-		p:   p,
-		f:   f,
-		s:   s,
-		c:   c,
+		cfg:           cfg,
+		P:             p,
+		f:             f,
+		s:             s,
+		c:             c,
+		localStateDir: localStateDir,
 	}
 
 	return g
@@ -74,9 +87,13 @@ func (g *Gojen) SetDecls(decls ...*D) {
 	}
 }
 
+func (g *Gojen) UpdateArgs(args Args) {
+	g.s.UpdateArgs(args)
+}
+
 // parseTemplate creates, executes a template and returns the result as a string.
 func (g *Gojen) parseTemplate(args map[string]any, name string, templateString string) (string, error) {
-	pipelineFns := g.p.GetFuncs()
+	pipelineFns := g.P.GetFuncs()
 
 	t, err := template.
 		New(name).
@@ -96,7 +113,7 @@ func (g *Gojen) parseTemplate(args map[string]any, name string, templateString s
 	return w.String(), nil
 }
 
-func (g *Gojen) build(seq *Seq) error {
+func (g *Gojen) build(seq *Seq, i *int) error {
 	decl := g.s.GetDecl(seq.DName)
 	if decl == nil {
 		return fmt.Errorf("Declaration '%s' not found", seq.DName)
@@ -153,15 +170,21 @@ func (g *Gojen) build(seq *Seq) error {
 		return err
 	}
 
+	rawAlias := util.IfValue(declElem.Name, declElem.Alias)
+	parsedAlias, err := g.parseTemplate(args, rawAlias, rawAlias)
+	if err != nil {
+		return err
+	}
+
 	st := &State{
 		seq:           seq,
 		d:             decl,
 		e:             declElem,
 		Strategy:      declElem.Strategy,
-		Confirm:       declElem.Confirm,
 		DName:         decl.Name,
 		EName:         declElem.Name,
-		EAlias:        declElem.Alias,
+		RawEAlias:     rawAlias,
+		ParsedEAlias:  parsedAlias,
 		Args:          args,
 		RawTmpl:       declElem.Template,
 		ParsedTmpl:    parsedTmpl,
@@ -171,23 +194,36 @@ func (g *Gojen) build(seq *Seq) error {
 	}
 	g.s.AddState(st)
 
+	var (
+		localStatePath   = filepath.Join(g.localStateDir, fmt.Sprintf("%d_%s_%s.yaml", *i, decl.Name, declElem.Name))
+		localStateDir, _ = filepath.Split(localStatePath)
+	)
+	if err := os.MkdirAll(localStateDir, os.ModePerm); err != nil {
+		return err
+	}
+	if err = g.f.TruncWithContent(localStatePath, st.String()); err != nil {
+		return err
+	}
+	*i++
 	g.c.Infof(!g.cfg.silent, "Built state: %s.%s\n", decl.Name, declElem.Name)
-	g.c.Successf(!g.cfg.silent, fmt.Sprintf("%s\n", st))
 
 	return nil
 }
 
 // Build builds the templates.
 func (g *Gojen) Build(seq *Seq) error {
-	var travelSeq func(n *Seq) error
-	var flow = []string{}
+	var (
+		travelSeq func(n *Seq) error
+		flow      = []string{}
+		bIndex    = 0
+	)
 
 	travelSeq = func(n *Seq) error {
 		if n.DName == "" && n.EName == "" {
 			return errors.New("invalid case selected")
 		}
 
-		if err := g.build(n); err != nil {
+		if err := g.build(n, &bIndex); err != nil {
 			return err
 		}
 
@@ -226,7 +262,7 @@ func (g *Gojen) Build(seq *Seq) error {
 			return fmt.Errorf("invalid case selected")
 		}
 
-		if err := g.build(c); err != nil {
+		if err := g.build(c, &bIndex); err != nil {
 			return err
 		}
 
@@ -248,11 +284,9 @@ func (g *Gojen) Build(seq *Seq) error {
 }
 
 func (g *Gojen) applyState(s *State) error {
-	if s.Confirm {
-		ok := g.c.PerformYesNo("Do you want to apply template '%s.%s'? ", s.DName, s.EName)
-		if !ok {
-			return nil
-		}
+	ok := g.c.PerformYesNo("Do you want to apply template '%s.%s'? ", s.DName, s.EName)
+	if !ok {
+		return nil
 	}
 
 	switch s.Strategy {
@@ -296,13 +330,8 @@ func (g *Gojen) applyState(s *State) error {
 			return nil
 		}
 
-		alias := util.IfValue("", s.EAlias, s.EName)
-		rawLineIdent := fmt.Sprintf("%s +gojen:append=%s", g.cfg.commentQuote, alias)
-		parsedLineIdent, err := g.parseTemplate(s.Args, alias, rawLineIdent)
-		if err != nil {
-			return err
-		}
-		return g.f.AppendContentAfter(s.ParsedPath, parsedLineIdent, s.ParsedTmpl)
+		lineIndent := fmt.Sprintf("%s +gojen:append=%s", g.cfg.commentQuote, s.ParsedEAlias)
+		return g.f.AppendContentAfter(s.ParsedPath, lineIndent, s.ParsedTmpl)
 	default:
 		fmt.Println("TODO: implement other strategies")
 	}

@@ -55,8 +55,10 @@ func NewPipelineWithConfig(cfg *PipelineConfig) *pipeline {
 		pl:         pl,
 		titleCaser: tc,
 		funcs: template.FuncMap{
+			// employees -> employee
 			"singular": pl.Singular,
-			"plural":   pl.Plural,
+			// employee -> employees
+			"plural": pl.Plural,
 
 			"s": pl.Singular,
 			"p": pl.Plural,
@@ -113,4 +115,9 @@ func NewPipelineWithConfig(cfg *PipelineConfig) *pipeline {
 // GetFuncs returns the pipeline functions.
 func (p *pipeline) GetFuncs() template.FuncMap {
 	return p.funcs
+}
+
+// UpdateFuncs updates the pipeline functions.
+func (p *pipeline) UpdateFuncs(fn func(current template.FuncMap) template.FuncMap) {
+	p.funcs = fn(p.funcs)
 }

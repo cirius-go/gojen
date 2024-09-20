@@ -10,10 +10,10 @@ type (
 		e   *E   `yaml:"-"`
 
 		Strategy      Strategy `yaml:"strategy"`
-		Confirm       bool     `yaml:"confirm"`
 		DName         string   `yaml:"d_name"`
 		EName         string   `yaml:"e_name"`
-		EAlias        string   `yaml:"e_alias"`
+		RawEAlias     string   `yaml:"e_alias"`
+		ParsedEAlias  string   `yaml:"parsed_e_alias"`
 		Args          Args     `yaml:"args"`
 		ForwardedArgs Args     `yaml:"forwarded_args"`
 		RawPath       string   `yaml:"raw_path"`
