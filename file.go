@@ -1,6 +1,7 @@
 package gojen
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -205,4 +206,71 @@ func (f *fileManager) CopyFile(src, dst string) error {
 	}
 
 	return nil
+}
+
+func (f *fileManager) getWordsFromFile(path string) (map[string]bool, []string, error) {
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return nil, nil, err
+	}
+	return f.getWords(string(content))
+}
+
+func (f *fileManager) getWords(content string) (map[string]bool, []string, error) {
+	words := make(map[string]bool)
+	var orderedWords []string
+	scanner := bufio.NewScanner(strings.NewReader(content))
+	scanner.Split(bufio.ScanWords)
+	for scanner.Scan() {
+		word := scanner.Text()
+		words[strings.ToLower(word)] = true
+		orderedWords = append(orderedWords, word)
+	}
+	return words, orderedWords, scanner.Err()
+}
+
+func (f *fileManager) compareWords(wordsA, wordsB map[string]bool, orderedWordsB []string) (float64, string) {
+	commonWords := 0
+	for word := range wordsA {
+		if wordsB[word] {
+			commonWords++
+		}
+	}
+	percentage := float64(commonWords) / float64(len(wordsA)) * 100
+
+	var highlighted strings.Builder
+	for _, word := range orderedWordsB {
+		if wordsA[strings.ToLower(word)] {
+			highlighted.WriteString(word)
+		}
+		highlighted.WriteString(" ")
+	}
+
+	return percentage, highlighted.String()
+}
+
+func (f *fileManager) CompareContentWithFile(content, dst string) (percent float64, dstHighlighted string, err error) {
+	wordsA, _, err := f.getWords(content)
+	if err != nil {
+		return 0, "", err
+	}
+	wordsB, orderedWordsB, err := f.getWordsFromFile(dst)
+	if err != nil {
+		return 0, "", err
+	}
+	percent, dstHighlighted = f.compareWords(wordsA, wordsB, orderedWordsB)
+	return
+}
+
+func (f *fileManager) CompareFile(src, dst string) (percent float64, dstHighlighted string, err error) {
+	wordsA, _, err := f.getWordsFromFile(src)
+	if err != nil {
+		return 0, "", err
+	}
+	wordsB, orderedWordsB, err := f.getWordsFromFile(dst)
+	if err != nil {
+		return 0, "", err
+	}
+	percent, dstHighlighted = f.compareWords(wordsA, wordsB, orderedWordsB)
+	return
 }

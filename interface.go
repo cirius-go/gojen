@@ -17,6 +17,8 @@ type (
 		FileExists(path string) bool
 		AppendContent(path string, content string) error
 		AppendContentAfter(path string, lineIdent, content string) error
+		CompareFile(src, dst string) (percent float64, dstHighlighted string, err error)
+		CompareContentWithFile(content, dst string) (percent float64, dstHighlighted string, err error)
 	}
 
 	// ConsoleManager is an interface that defines the methods for interacting with the

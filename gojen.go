@@ -46,7 +46,7 @@ func NewWithConfig(cfg *config) *Gojen {
 	pipelineCfg := PipelineC()
 	p := NewPipelineWithConfig(pipelineCfg)
 
-	c := NewCLI()
+	c := NewConsole()
 
 	f := NewFileManager()
 
@@ -292,10 +292,6 @@ func (g *Gojen) Build(seq *Seq) (err error) {
 }
 
 func (g *Gojen) applyState(s *State) (err error) {
-	ok := g.c.PerformYesNo("Do you want to apply template '%s.%s'? ", s.DName, s.EName)
-	if !ok {
-		return nil
-	}
 
 	defer func() {
 		if err != nil {
@@ -307,6 +303,13 @@ func (g *Gojen) applyState(s *State) (err error) {
 
 	switch s.Strategy {
 	case StrategyInit:
+		// g.c.Dangerf(true, "Do you want to create '%s.%s' (if it's not exist) with this content?\n", s.DName, s.EName)
+		// g.c.Printf(true, "%s\n", s.ParsedTmpl)
+		// ok := g.c.PerformYesNo("Confirm (y/N): ")
+		// if !ok {
+		// 	return nil
+		// }
+
 		created, err := g.f.CreateFileIfNotExist(s.ParsedPath, s.ParsedTmpl)
 		if err != nil {
 			return err
@@ -321,7 +324,7 @@ func (g *Gojen) applyState(s *State) (err error) {
 		g.c.Infof(!g.cfg.silent, "File already exists: '%s'. Skipped to init the file\n", s.ParsedPath)
 		return nil
 	case StrategyTrunc:
-		if ok := g.c.PerformYesNo("Do you want to truncate %s?", s.ParsedPath); !ok {
+		if ok := g.c.PerformYesNo("Do you want to truncate '%s'? ", s.ParsedPath); !ok {
 			g.c.Infof(!g.cfg.silent, "User skipped to truncate file: %s\n", s.ParsedPath)
 			return nil
 		}
@@ -338,12 +341,40 @@ func (g *Gojen) applyState(s *State) (err error) {
 			return g.f.TruncWithContent(s.ParsedPath, s.ParsedTmpl)
 		}
 
+		percent, highlighted, err := g.f.CompareContentWithFile(s.ParsedTmpl, s.ParsedPath)
+		if err != nil {
+			return err
+		}
+
+		if percent > 0 {
+			g.c.Dangerf(true, "Detected percent of same content: %f\n", percent)
+			g.c.Printf(true, "%s\n", highlighted)
+			if ok := g.c.PerformYesNo("Do you still want to continue (y/N)? "); !ok {
+				return nil
+			}
+		}
+
+		// check percent same content.
+
 		return g.f.AppendContent(s.ParsedPath, s.ParsedTmpl)
 	case StrategyAppend:
 		exist := g.f.FileExists(s.ParsedPath)
 		if !exist {
 			g.c.Infof(!g.cfg.silent, "File %s does not exist. Skipped to append parsed content\n", s.ParsedPath)
 			return nil
+		}
+
+		percent, highlighted, err := g.f.CompareContentWithFile(s.ParsedTmpl, s.ParsedPath)
+		if err != nil {
+			return err
+		}
+
+		if percent > 0 {
+			g.c.Dangerf(true, "Detected percent of same content: %f\n", percent)
+			g.c.Printf(true, "%s\n", highlighted)
+			if ok := g.c.PerformYesNo("Do you still want to continue (y/N)? "); !ok {
+				return nil
+			}
 		}
 
 		lineIndent := fmt.Sprintf("%s +gojen:append=%s", g.cfg.commentQuote, s.ParsedEAlias)

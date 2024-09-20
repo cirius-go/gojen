@@ -58,8 +58,8 @@ func NewConsoleWithConfig(cfg *ConsoleConfig) *Console {
 	}
 }
 
-// NewCLI returns a new CLI instance.
-func NewCLI() *Console {
+// NewConsole returns a new CLI instance.
+func NewConsole() *Console {
 	cfg := ConsoleC()
 
 	return NewConsoleWithConfig(cfg)
