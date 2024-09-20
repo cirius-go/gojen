@@ -347,8 +347,9 @@ func (g *Gojen) applyState(s *State) (err error) {
 		}
 
 		if percent > 0 {
-			g.c.Dangerf(true, "Detected percent of same content %f of '%s':\n%s\n", percent, s.ParsedPath, s.ParsedTmpl)
-			g.c.Printf(true, "%s\n", highlighted)
+			g.c.Dangerf(true, "Detected percent of same content %f of '%s':\n", percent, s.ParsedPath)
+			g.c.Printf(true, "%s\n", s.ParsedTmpl)
+			g.c.Dangerf(true, "%s\n", highlighted)
 			if ok := g.c.PerformYesNo("Do you still want to continue (y/N)? "); !ok {
 				return nil
 			}
@@ -370,8 +371,9 @@ func (g *Gojen) applyState(s *State) (err error) {
 		}
 
 		if percent > 0 {
-			g.c.Dangerf(true, "Detected percent of same content %f of '%s':\n%s\n", percent, s.ParsedPath, s.ParsedTmpl)
-			g.c.Printf(true, "%s\n", highlighted)
+			g.c.Dangerf(true, "Detected percent of same content %f of '%s':\n", percent, s.ParsedPath)
+			g.c.Printf(true, "%s\n", s.ParsedTmpl)
+			g.c.Dangerf(true, "%s\n", highlighted)
 			if ok := g.c.PerformYesNo("Do you still want to continue (y/N)? "); !ok {
 				return nil
 			}
