@@ -1,6 +1,7 @@
 package util
 
 import (
+	"encoding/json"
 	"slices"
 	"sort"
 	"strings"
@@ -56,6 +57,15 @@ func (m MapExisting[K]) Keys() []K {
 
 func (m MapExisting[K]) Add(k K) {
 	m[k] = struct{}{}
+}
+
+func (m MapExisting[K]) String() string {
+	if m == nil {
+		return ""
+	}
+	keys := m.Keys()
+	b, _ := json.Marshal(&keys)
+	return string(b)
 }
 
 // PFunc is a function type that takes a parameter.

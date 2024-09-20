@@ -26,6 +26,7 @@ type Gojen struct {
 	// cached variable during build.
 	localStateDir string
 	Err           error
+	ModifiedFiles util.MapExisting[string]
 }
 
 // New returns a new Gojen instance with default configuration.
@@ -65,6 +66,7 @@ func NewWithConfig(cfg *config) *Gojen {
 		s:             s,
 		c:             c,
 		localStateDir: localStateDir,
+		ModifiedFiles: make(util.MapExisting[string]),
 	}
 
 	return g
@@ -211,12 +213,18 @@ func (g *Gojen) build(seq *Seq, i *int) error {
 }
 
 // Build builds the templates.
-func (g *Gojen) Build(seq *Seq) error {
+func (g *Gojen) Build(seq *Seq) (err error) {
 	var (
 		travelSeq func(n *Seq) error
 		flow      = []string{}
 		bIndex    = 0
 	)
+
+	defer func() {
+		if err != nil {
+			g.Err = err
+		}
+	}()
 
 	travelSeq = func(n *Seq) error {
 		if n.DName == "" && n.EName == "" {
@@ -283,11 +291,19 @@ func (g *Gojen) Build(seq *Seq) error {
 	return nil
 }
 
-func (g *Gojen) applyState(s *State) error {
+func (g *Gojen) applyState(s *State) (err error) {
 	ok := g.c.PerformYesNo("Do you want to apply template '%s.%s'? ", s.DName, s.EName)
 	if !ok {
 		return nil
 	}
+
+	defer func() {
+		if err != nil {
+			return
+		}
+
+		g.ModifiedFiles.Add(s.ParsedPath)
+	}()
 
 	switch s.Strategy {
 	case StrategyInit:
@@ -341,6 +357,10 @@ func (g *Gojen) applyState(s *State) error {
 
 // Gojen applies the built templates.
 func (g *Gojen) Apply() error {
+	if g.Err != nil {
+		return g.Err
+	}
+
 	for _, bs := range g.s.GetStates() {
 		if err := g.applyState(bs); err != nil {
 			return err
