@@ -242,9 +242,11 @@ func (f *fileManager) compareLines(linesA, linesB []string, ignoreLines util.Map
 	var highlighted strings.Builder
 
 	lastPos := 0
+	ignoredCount := 0
 	for i := 0; i < len(linesA); i++ {
 		a := strings.TrimSpace(linesA[i])
 		if ignoreLines != nil && ignoreLines.Contains(a) {
+			ignoredCount++
 			continue
 		}
 
@@ -259,7 +261,7 @@ func (f *fileManager) compareLines(linesA, linesB []string, ignoreLines util.Map
 		}
 	}
 
-	percentage := float64(matchCount) / float64(len(linesA)) * 100
+	percentage := float64(matchCount) / float64(len(linesA)-ignoredCount) * 100
 	return percentage, highlighted.String()
 }
 

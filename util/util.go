@@ -55,8 +55,10 @@ func (m MapExisting[K]) Keys() []K {
 	return keys
 }
 
-func (m MapExisting[K]) Add(k K) {
-	m[k] = struct{}{}
+func (m MapExisting[K]) Add(ks ...K) {
+	for _, k := range ks {
+		m[k] = struct{}{}
+	}
 }
 
 func (m MapExisting[K]) String() string {

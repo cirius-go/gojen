@@ -29,8 +29,8 @@ func (c *config) SetStorePath(storePath string) *config {
 }
 
 // IgnoreComparingLine adds a new ignoreCompareLineWith to the Config struct.
-func (c *config) IgnoreComparingLine(line string) *config {
-	c.ignoreComparingLines.Add(line)
+func (c *config) IgnoreComparingLine(lines ...string) *config {
+	c.ignoreComparingLines.Add(lines...)
 	return c
 }
 
