@@ -292,7 +292,6 @@ func (g *Gojen) Build(seq *Seq) (err error) {
 }
 
 func (g *Gojen) applyState(s *State) (err error) {
-
 	defer func() {
 		if err != nil {
 			return
@@ -397,6 +396,8 @@ func (g *Gojen) Apply() error {
 			return err
 		}
 	}
+
+	g.s.Clean()
 
 	return nil
 }

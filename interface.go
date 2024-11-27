@@ -57,6 +57,7 @@ type (
 		AddState(s *State)
 		GetStates() []*State
 		LastState() *State
+		Clean()
 	}
 
 	// SeqSwitcher represents a branch switcher of the seq.

@@ -182,6 +182,11 @@ func (g *store) AddState(s *State) {
 	g.builtStates = append(g.builtStates, s)
 }
 
+func (g *store) Clean() {
+	g.builtStates = make([]*State, 0)
+	g.args = Args{}
+}
+
 // GetStates returns the built states.
 func (g *store) GetStates() []*State {
 	return g.builtStates
