@@ -18,6 +18,8 @@ type PluralizeType string
 type (
 	// PipelineConfig contains configurations for pipeline.
 	PipelineConfig struct {
+		irregularMap map[string]string
+		uncountable  []string
 	}
 
 	// type pipeline manage the pipeline functions to handle variables in the
@@ -30,9 +32,26 @@ type (
 	}
 )
 
+// AddIrregularMap set the irregular map.
+func (c *PipelineConfig) AddIrregularMap(irregularMap map[string]string) *PipelineConfig {
+	for k, v := range irregularMap {
+		c.irregularMap[k] = v
+	}
+	return c
+}
+
+// AddUncountable set the uncountable words.
+func (c *PipelineConfig) AddUncountable(uncountable []string) *PipelineConfig {
+	c.uncountable = append(c.uncountable, uncountable...)
+	return c
+}
+
 // PipelineC returns a new PipelineConfig with default.
 func PipelineC() *PipelineConfig {
-	return &PipelineConfig{}
+	return &PipelineConfig{
+		irregularMap: make(map[string]string),
+		uncountable:  []string{},
+	}
 }
 
 // NewPipeline returns a new pipeline with default configuration.
@@ -49,6 +68,12 @@ func NewPipelineWithConfig(cfg *PipelineConfig) *pipeline {
 	}
 
 	pl := pluralize.NewClient()
+	for k, v := range cfg.irregularMap {
+		pl.AddIrregularRule(k, v)
+	}
+	for _, w := range cfg.uncountable {
+		pl.AddUncountableRule(w)
+	}
 	tc := cases.Title(language.AmericanEnglish)
 	p := &pipeline{
 		cfg:        cfg,
