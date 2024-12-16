@@ -335,6 +335,7 @@ func (g *Gojen) applyState(s *State) (err error) {
 
 		ignoreComparingLines := g.cfg.ignoreComparingLines
 		ignoreComparingLines.Add(s.e.IgnoreComparingLines...)
+		ignoreComparingLines.Add(s.d.IgnoreComparingLines...)
 		percent, highlighted, err := g.f.CompareContentWithFile(s.ParsedTmpl, s.ParsedPath, ignoreComparingLines)
 		if err != nil {
 			return err
@@ -360,6 +361,7 @@ func (g *Gojen) applyState(s *State) (err error) {
 
 		ignoreComparingLines := g.cfg.ignoreComparingLines
 		ignoreComparingLines.Add(s.e.IgnoreComparingLines...)
+		ignoreComparingLines.Add(s.d.IgnoreComparingLines...)
 		percent, highlighted, err := g.f.CompareContentWithFile(s.ParsedTmpl, s.ParsedPath, ignoreComparingLines)
 		if err != nil {
 			return err

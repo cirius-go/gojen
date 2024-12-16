@@ -30,13 +30,14 @@ type (
 
 	// D represents a declaration for templates.
 	D struct {
-		Path        string   `json:"path" yaml:"path"`
-		Name        string   `json:"name" yaml:"name"`
-		Require     []string `json:"require" yaml:"require"`
-		Args        Args     `json:"args" yaml:"args"`
-		Elements    []*E     `json:"elements" yaml:"elements"`
-		Description string   `json:"description" yaml:"description"`
-		selected    string
+		Path                 string   `json:"path" yaml:"path"`
+		Name                 string   `json:"name" yaml:"name"`
+		Require              []string `json:"require" yaml:"require"`
+		Args                 Args     `json:"args" yaml:"args"`
+		Elements             []*E     `json:"elements" yaml:"elements"`
+		Description          string   `json:"description" yaml:"description"`
+		IgnoreComparingLines []string `json:"ignore_comparing_lines" yaml:"ignore_comparing_lines"`
+		selected             string
 	}
 
 	// M represents a map of template definitions.
