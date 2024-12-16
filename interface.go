@@ -43,7 +43,6 @@ type (
 	// template pipeline functions.
 	PipelineManager interface {
 		GetFuncs() template.FuncMap
-		UpdateFuncs(fn func(template.FuncMap) template.FuncMap)
 	}
 
 	// StoreManager is an interface that defines the methods for managing the
