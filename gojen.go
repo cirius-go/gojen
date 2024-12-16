@@ -18,7 +18,7 @@ import (
 type Gojen struct {
 	cfg *config
 
-	P PipelineManager
+	p PipelineManager
 	f FileManager
 	s StoreManager
 	c ConsoleManager
@@ -42,17 +42,10 @@ func NewWithConfig(cfg *config) *Gojen {
 		panic("config is required")
 	}
 
-	// template pipeline manager.
-	pipelineCfg := PipelineC()
-	p := NewPipelineWithConfig(pipelineCfg)
-
-	c := NewConsole()
-
-	f := NewFileManager()
-
-	// store
-	storeCfg := StoreC()
-	s := NewStoreWithConfig(storeCfg, c, f)
+	p := NewPipelineWithConfig(cfg.pipeline)
+	c := NewConsoleWithConfig(cfg.console)
+	f := NewFileManagerWithConfig(cfg.fileManager)
+	s := NewStoreWithConfig(cfg.store, c, f)
 
 	var (
 		bNum          = time.Now().Format("20060102150405")
@@ -61,7 +54,7 @@ func NewWithConfig(cfg *config) *Gojen {
 
 	g := &Gojen{
 		cfg:           cfg,
-		P:             p,
+		p:             p,
 		f:             f,
 		s:             s,
 		c:             c,
@@ -95,7 +88,7 @@ func (g *Gojen) UpdateArgs(args Args) {
 
 // parseTemplate creates, executes a template and returns the result as a string.
 func (g *Gojen) parseTemplate(args map[string]any, name string, templateString string) (string, error) {
-	pipelineFns := g.P.GetFuncs()
+	pipelineFns := g.p.GetFuncs()
 
 	t, err := template.
 		New(name).

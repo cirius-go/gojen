@@ -4,6 +4,10 @@ import "github.com/cirius-go/gojen/util"
 
 // config is a struct that holds the configuration for the Gojen instance.
 type config struct {
+	console              *ConsoleConfig
+	pipeline             *PipelineConfig
+	fileManager          *FileManagerConfig
+	store                *StoreConfig
 	silent               bool
 	commentQuote         string
 	storePath            string
@@ -34,9 +38,33 @@ func (c *config) IgnoreComparingLine(lines ...string) *config {
 	return c
 }
 
+func (c *config) SetConsoleConfig(cfg *ConsoleConfig) *config {
+	c.console = cfg
+	return c
+}
+
+func (c *config) SetPipelineConfig(cfg *PipelineConfig) *config {
+	c.pipeline = cfg
+	return c
+}
+
+func (c *config) SetFileManagerConfig(cfg *FileManagerConfig) *config {
+	c.fileManager = cfg
+	return c
+}
+
+func (c *config) SetStoreConfig(cfg *StoreConfig) *config {
+	c.store = cfg
+	return c
+}
+
 // C returns a new Config struct.
 func C() *config {
 	return &config{
+		console:              ConsoleC(),
+		pipeline:             PipelineC(),
+		fileManager:          FileManagerC(),
+		store:                StoreC(),
 		silent:               false,
 		commentQuote:         "//",
 		storePath:            ".gojen",

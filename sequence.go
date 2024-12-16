@@ -7,8 +7,24 @@ import (
 	"github.com/cirius-go/gojen/util"
 )
 
+// SeqConfig is a config for sequence.
+type SeqConfig struct {
+	IgnoreComparingLines []string `yaml:"ignore_comparing_lines,omitempty"`
+}
+
+func SeqC() *SeqConfig {
+	return &SeqConfig{
+		IgnoreComparingLines: []string{},
+	}
+}
+
+func (s *SeqConfig) SetIgnoreComparingLines(lines ...string) {
+	s.IgnoreComparingLines = append(s.IgnoreComparingLines, lines...)
+}
+
 // Seq reresents a sequence.
 type Seq struct {
+	cfg         *SeqConfig               `yaml:"-"`
 	root        *Seq                     `yaml:"-"`
 	DName       string                   `yaml:"d_name"`
 	EName       string                   `yaml:"e_name"`
@@ -24,7 +40,12 @@ type SeqCases map[string]*Seq
 
 // NewSeq creates a new sequence.
 func NewSeq(dName, eName string) *Seq {
+	return NewSeqWithConfig(dName, eName, SeqC())
+}
+
+func NewSeqWithConfig(dName, eName string, cfg *SeqConfig) *Seq {
 	s := &Seq{
+		cfg:         cfg,
 		DName:       dName,
 		EName:       eName,
 		ForwardArgs: util.MapExisting[string]{},
@@ -32,7 +53,6 @@ func NewSeq(dName, eName string) *Seq {
 	}
 
 	s.root = s
-
 	return s
 }
 
