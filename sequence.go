@@ -32,8 +32,14 @@ type Seq struct {
 type SeqCases map[string]*Seq
 
 // NewSeq creates a new sequence.
-func NewSeq(dName, eName string) *Seq {
-	return NewSeqWithConfig(dName, eName, SeqC())
+func NewSeq(dName string, eNames ...string) *Seq {
+	if len(eNames) == 0 {
+		panic("no element name provided")
+	}
+
+	first := eNames[0]
+	s := NewSeqWithConfig(dName, first, SeqC())
+	return s.Append(dName, eNames[1:]...)
 }
 
 func NewSeqWithConfig(dName, eName string, cfg *SeqConfig) *Seq {
@@ -85,12 +91,15 @@ func (s *Seq) append(dName, eName string) *Seq {
 	return n
 }
 
-func (s *Seq) Append(dName, eName string, moreENames ...string) *Seq {
-	n := s.append(dName, eName)
-	for _, eName := range moreENames {
-		n = n.append(dName, eName)
+func (s *Seq) Append(dName string, moreENames ...string) *Seq {
+	if len(moreENames) == 0 {
+		panic("no element name provided")
 	}
-	return n
+	cur := s
+	for _, eName := range moreENames {
+		cur = cur.append(dName, eName)
+	}
+	return cur
 }
 
 func (s *Seq) Forward(argNames ...string) *Seq {
