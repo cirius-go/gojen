@@ -33,9 +33,7 @@ type SeqCases map[string]*Seq
 
 // NewSeq creates a new sequence.
 func NewSeq(dName string, eNames ...string) *Seq {
-
-	s := NewSeqWithConfig(dName, eNames, SeqC())
-	return s.Append(dName, eNames[1:]...)
+	return NewSeqWithConfig(dName, eNames, SeqC())
 }
 
 func NewSeqWithConfig(dName string, eNames []string, cfg *SeqConfig) *Seq {
