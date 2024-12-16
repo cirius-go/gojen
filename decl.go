@@ -18,13 +18,14 @@ type Strategy string
 type (
 	// E represents a element.
 	E struct {
-		Path     string   `json:"path" yaml:"path" validate:"required"`
-		Name     string   `json:"name" yaml:"name" validate:"required"`
-		Alias    string   `json:"alias" yaml:"alias"`
-		Require  []string `json:"require" yaml:"require"`
-		Args     Args     `json:"args" yaml:"args" validate:"required"`
-		Template string   `json:"template" yaml:"template" validate:"required"`
-		Strategy Strategy `json:"strategy" yaml:"strategy" validate:"required"`
+		Path                 string   `json:"path" yaml:"path" validate:"required"`
+		Name                 string   `json:"name" yaml:"name" validate:"required"`
+		Alias                string   `json:"alias" yaml:"alias"`
+		Require              []string `json:"require" yaml:"require"`
+		Args                 Args     `json:"args" yaml:"args" validate:"required"`
+		Template             string   `json:"template" yaml:"template" validate:"required"`
+		Strategy             Strategy `json:"strategy" yaml:"strategy" validate:"required"`
+		IgnoreComparingLines []string `json:"ignore_comparing_lines" yaml:"ignore_comparing_lines"`
 	}
 
 	// D represents a declaration for templates.

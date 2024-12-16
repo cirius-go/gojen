@@ -333,7 +333,9 @@ func (g *Gojen) applyState(s *State) (err error) {
 			return g.f.TruncWithContent(s.ParsedPath, s.ParsedTmpl)
 		}
 
-		percent, highlighted, err := g.f.CompareContentWithFile(s.ParsedTmpl, s.ParsedPath, g.cfg.ignoreComparingLines)
+		ignoreComparingLines := g.cfg.ignoreComparingLines
+		ignoreComparingLines.Add(s.e.IgnoreComparingLines...)
+		percent, highlighted, err := g.f.CompareContentWithFile(s.ParsedTmpl, s.ParsedPath, ignoreComparingLines)
 		if err != nil {
 			return err
 		}
@@ -356,7 +358,9 @@ func (g *Gojen) applyState(s *State) (err error) {
 			return nil
 		}
 
-		percent, highlighted, err := g.f.CompareContentWithFile(s.ParsedTmpl, s.ParsedPath, g.cfg.ignoreComparingLines)
+		ignoreComparingLines := g.cfg.ignoreComparingLines
+		ignoreComparingLines.Add(s.e.IgnoreComparingLines...)
+		percent, highlighted, err := g.f.CompareContentWithFile(s.ParsedTmpl, s.ParsedPath, ignoreComparingLines)
 		if err != nil {
 			return err
 		}

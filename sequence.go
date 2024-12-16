@@ -9,17 +9,10 @@ import (
 
 // SeqConfig is a config for sequence.
 type SeqConfig struct {
-	IgnoreComparingLines []string `yaml:"ignore_comparing_lines,omitempty"`
 }
 
 func SeqC() *SeqConfig {
-	return &SeqConfig{
-		IgnoreComparingLines: []string{},
-	}
-}
-
-func (s *SeqConfig) SetIgnoreComparingLines(lines ...string) {
-	s.IgnoreComparingLines = append(s.IgnoreComparingLines, lines...)
+	return &SeqConfig{}
 }
 
 // Seq reresents a sequence.
