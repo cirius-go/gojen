@@ -33,25 +33,28 @@ type SeqCases map[string]*Seq
 
 // NewSeq creates a new sequence.
 func NewSeq(dName string, eNames ...string) *Seq {
+
+	s := NewSeqWithConfig(dName, eNames, SeqC())
+	return s.Append(dName, eNames[1:]...)
+}
+
+func NewSeqWithConfig(dName string, eNames []string, cfg *SeqConfig) *Seq {
 	if len(eNames) == 0 {
 		panic("no element name provided")
 	}
 
-	first := eNames[0]
-	s := NewSeqWithConfig(dName, first, SeqC())
-	return s.Append(dName, eNames[1:]...)
-}
-
-func NewSeqWithConfig(dName, eName string, cfg *SeqConfig) *Seq {
 	s := &Seq{
 		cfg:         cfg,
 		DName:       dName,
-		EName:       eName,
+		EName:       eNames[0],
 		ForwardArgs: util.MapExisting[string]{},
 		Cases:       SeqCases{},
 	}
-
 	s.root = s
+
+	if len(eNames) > 1 {
+		s = s.Append(dName, eNames[1:]...)
+	}
 	return s
 }
 
