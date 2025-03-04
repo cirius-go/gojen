@@ -1,8 +1,8 @@
-package gojen
+package pipeline
 
 import (
+	"html/template"
 	"strings"
-	"text/template"
 
 	"github.com/danielgtaylor/casing"
 	"github.com/gertd/go-pluralize"
@@ -16,17 +16,17 @@ import (
 type PluralizeType string
 
 type (
-	// PipelineConfig contains configurations for pipeline.
-	PipelineConfig struct {
+	// Config contains configurations for pipeline.
+	Config struct {
 		irregularMap  map[string]string
 		uncountable   []string
 		updateFuncFns []func(def template.FuncMap) template.FuncMap
 	}
 
-	// type pipeline manage the pipeline functions to handle variables in the
+	// type Pipeline manage the Pipeline functions to handle variables in the
 	// template.
-	pipeline struct {
-		cfg        *PipelineConfig
+	Pipeline struct {
+		cfg        *Config
 		pl         *pluralize.Client
 		titleCaser cases.Caser
 		funcs      template.FuncMap
@@ -34,7 +34,7 @@ type (
 )
 
 // AddIrregularMap set the irregular map.
-func (c *PipelineConfig) AddIrregularMap(irregularMap map[string]string) *PipelineConfig {
+func (c *Config) AddIrregularMap(irregularMap map[string]string) *Config {
 	for k, v := range irregularMap {
 		c.irregularMap[k] = v
 	}
@@ -42,33 +42,33 @@ func (c *PipelineConfig) AddIrregularMap(irregularMap map[string]string) *Pipeli
 }
 
 // AddUncountable set the uncountable words.
-func (c *PipelineConfig) AddUncountable(uncountable []string) *PipelineConfig {
+func (c *Config) AddUncountable(uncountable []string) *Config {
 	c.uncountable = append(c.uncountable, uncountable...)
 	return c
 }
 
-// PipelineC returns a new PipelineConfig with default.
-func PipelineC() *PipelineConfig {
-	return &PipelineConfig{
+// C returns a new PipelineConfig with default.
+func C() *Config {
+	return &Config{
 		irregularMap: make(map[string]string),
 		uncountable:  []string{},
 	}
 }
 
-// NewPipeline returns a new pipeline with default configuration.
-func NewPipeline() *pipeline {
-	c := PipelineC()
+// New returns a new pipeline with default configuration.
+func New() *Pipeline {
+	c := C()
 
-	return NewPipelineWithConfig(c)
+	return NewWithConfig(c)
 }
 
 // newPipelineWithConfig returns a new pipeline with the given configuration.
-func NewPipelineWithConfig(cfg *PipelineConfig) *pipeline {
+func NewWithConfig(cfg *Config) *Pipeline {
 	if cfg == nil {
 		panic("pipeline config is required")
 	}
 
-	p := &pipeline{
+	p := &Pipeline{
 		cfg:   cfg,
 		funcs: makeDefaultFuncs(cfg),
 	}
@@ -87,16 +87,16 @@ func NewPipelineWithConfig(cfg *PipelineConfig) *pipeline {
 }
 
 // GetFuncs returns the pipeline functions.
-func (p *pipeline) GetFuncs() template.FuncMap {
+func (p *Pipeline) GetFuncs() template.FuncMap {
 	return p.funcs
 }
 
 // UpdateFuncs updates the pipeline functions.
-func (p *PipelineConfig) UpdateFuncs(fn func(def template.FuncMap) template.FuncMap) {
+func (p *Config) UpdateFuncs(fn func(def template.FuncMap) template.FuncMap) {
 	p.updateFuncFns = append(p.updateFuncFns, fn)
 }
 
-func makeDefaultFuncs(cfg *PipelineConfig) template.FuncMap {
+func makeDefaultFuncs(cfg *Config) template.FuncMap {
 	pl := pluralize.NewClient()
 	for k, v := range cfg.irregularMap {
 		pl.AddIrregularRule(k, v)

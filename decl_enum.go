@@ -12,23 +12,29 @@ import (
 )
 
 const (
-	// StrategyTrunc is a Strategy of type trunc.
-	StrategyTrunc Strategy = "trunc"
-	// StrategyAppend is a Strategy of type append.
-	StrategyAppend Strategy = "append"
-	// StrategyAppendAtLast is a Strategy of type append_at_last.
-	StrategyAppendAtLast Strategy = "append_at_last"
 	// StrategyInit is a Strategy of type init.
 	StrategyInit Strategy = "init"
+	// StrategyPrependAtHead is a Strategy of type prepend_at_head.
+	StrategyPrependAtHead Strategy = "prepend_at_head"
+	// StrategyPrepend is a Strategy of type prepend.
+	StrategyPrepend Strategy = "prepend"
+	// StrategyAppend is a Strategy of type append.
+	StrategyAppend Strategy = "append"
+	// StrategyAppendAtPos is a Strategy of type append_at_pos.
+	StrategyAppendAtPos Strategy = "append_at_pos"
+	// StrategyEdit is a Strategy of type edit.
+	StrategyEdit Strategy = "edit"
 )
 
 var ErrInvalidStrategy = fmt.Errorf("not a valid Strategy, try [%s]", strings.Join(_StrategyNames, ", "))
 
 var _StrategyNames = []string{
-	string(StrategyTrunc),
-	string(StrategyAppend),
-	string(StrategyAppendAtLast),
 	string(StrategyInit),
+	string(StrategyPrependAtHead),
+	string(StrategyPrepend),
+	string(StrategyAppend),
+	string(StrategyAppendAtPos),
+	string(StrategyEdit),
 }
 
 // StrategyNames returns a list of possible string values of Strategy.
@@ -41,10 +47,12 @@ func StrategyNames() []string {
 // StrategyValues returns a list of the values for Strategy
 func StrategyValues() []Strategy {
 	return []Strategy{
-		StrategyTrunc,
-		StrategyAppend,
-		StrategyAppendAtLast,
 		StrategyInit,
+		StrategyPrependAtHead,
+		StrategyPrepend,
+		StrategyAppend,
+		StrategyAppendAtPos,
+		StrategyEdit,
 	}
 }
 
@@ -61,10 +69,12 @@ func (x Strategy) IsValid() bool {
 }
 
 var _StrategyValue = map[string]Strategy{
-	"trunc":          StrategyTrunc,
-	"append":         StrategyAppend,
-	"append_at_last": StrategyAppendAtLast,
-	"init":           StrategyInit,
+	"init":            StrategyInit,
+	"prepend_at_head": StrategyPrependAtHead,
+	"prepend":         StrategyPrepend,
+	"append":          StrategyAppend,
+	"append_at_pos":   StrategyAppendAtPos,
+	"edit":            StrategyEdit,
 }
 
 // ParseStrategy attempts to convert a string to a Strategy.

@@ -6,6 +6,7 @@ import (
 
 	"gopkg.in/yaml.v2"
 
+	"github.com/cirius-go/gojen/lib/filemanager"
 	"github.com/cirius-go/gojen/util"
 )
 
@@ -111,7 +112,7 @@ func NewStore(c ConsoleManager, fm FileManager) *store {
 
 // LoadDir walks through the directory and loads the template definitions.
 func (s *store) LoadDir(dir string) error {
-	return s.fm.WalkDir(dir, true, func(e *FileInfo) error {
+	return s.fm.WalkDir(dir, true, func(e *filemanager.FileInfo) error {
 		var fileDecoder FileDecoder
 
 		switch e.Ext {

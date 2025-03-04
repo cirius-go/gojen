@@ -25,6 +25,7 @@ type Seq struct {
 	IsCase      bool                     `yaml:"is_case,omitempty"`      // is case.
 	Next        *Seq                     `yaml:"next,omitempty"`
 	Cases       SeqCases                 `yaml:"cases,omitempty"`
+	tempArgs    Args                     `yaml:"tempArgs,omitempty"`
 }
 
 // SeqCases is a map of cases.
@@ -90,6 +91,20 @@ func (s *Seq) append(dName, eName string) *Seq {
 		l.Next = n
 	}
 	return n
+}
+
+func (s *Seq) AppendWiths(chainArgs []Args, dname string, moreENames ...string) *Seq {
+	for _, args := range chainArgs {
+		s = s.AppendWith(args, dname, moreENames...)
+	}
+
+	return s
+}
+
+func (s *Seq) AppendWith(args Args, dname string, moreENames ...string) *Seq {
+	s = s.Append(dname, moreENames...)
+	s.tempArgs = args
+	return s
 }
 
 func (s *Seq) Append(dName string, moreENames ...string) *Seq {

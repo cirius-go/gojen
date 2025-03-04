@@ -11,6 +11,9 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/cirius-go/gojen/lib/cli"
+	"github.com/cirius-go/gojen/lib/filemanager"
+	"github.com/cirius-go/gojen/lib/pipeline"
 	"github.com/cirius-go/gojen/util"
 )
 
@@ -42,9 +45,9 @@ func NewWithConfig(cfg *config) *Gojen {
 		panic("config is required")
 	}
 
-	p := NewPipelineWithConfig(cfg.pipeline)
-	c := NewConsoleWithConfig(cfg.console)
-	f := NewFileManagerWithConfig(cfg.fileManager)
+	p := pipeline.NewWithConfig(cfg.pipeline)
+	c := cli.NewWithConfig(cfg.console)
+	f := filemanager.NewWithConfig(cfg.fileManager)
 	s := NewStoreWithConfig(cfg.store, c, f)
 
 	var (
@@ -121,7 +124,7 @@ func (g *Gojen) build(seq *Seq, i *int) error {
 	var (
 		rawPath          = util.IfValue("", declElem.Path, decl.Path)
 		storeArgs, _     = g.s.GetArgs()
-		args             = NewArgs(storeArgs, decl.Args, declElem.Args)
+		args             = NewArgs(storeArgs, decl.Args, declElem.Args, seq.tempArgs)
 		requiredArgNames = util.NewSlice(decl.Require, declElem.Require, seq.ForwardArgs.Keys())
 	)
 
@@ -165,6 +168,24 @@ func (g *Gojen) build(seq *Seq, i *int) error {
 		return err
 	}
 
+	stateOutput := make(map[string]*Output, len(declElem.Output))
+	for k, v := range declElem.Output {
+		outputRawPath := util.IfValue("", v.Path, declElem.Path, decl.Path)
+		parsedOutputPath, err := g.parseTemplate(args, "path", outputRawPath)
+		if err != nil {
+			return err
+		}
+
+		parsedOutputTmpl, err := g.parseTemplate(args, "content", v.Template)
+		if err != nil {
+			return err
+		}
+		stateOutput[k] = &Output{
+			Path:     parsedOutputPath,
+			Template: parsedOutputTmpl,
+		}
+	}
+
 	rawAlias := util.IfValue(declElem.Name, declElem.Alias)
 	parsedAlias, err := g.parseTemplate(args, rawAlias, rawAlias)
 	if err != nil {
@@ -186,6 +207,7 @@ func (g *Gojen) build(seq *Seq, i *int) error {
 		RawPath:       rawPath,
 		ParsedPath:    parsedPath,
 		ForwardedArgs: forwardArgs,
+		Output:        stateOutput,
 	}
 	g.s.AddState(st)
 
@@ -295,16 +317,16 @@ func (g *Gojen) applyState(s *State) (err error) {
 
 	switch s.Strategy {
 	case StrategyInit:
-		// g.c.Dangerf(true, "Do you want to create '%s.%s' (if it's not exist) with this content?\n", s.DName, s.EName)
-		// g.c.Printf(true, "%s\n", s.ParsedTmpl)
-		// ok := g.c.PerformYesNo("Confirm (y/N): ")
-		// if !ok {
-		// 	return nil
-		// }
-
 		created, err := g.f.CreateFileIfNotExist(s.ParsedPath, s.ParsedTmpl)
 		if err != nil {
 			return err
+		}
+
+		for outputName, output := range s.Output {
+			inputIndent := fmt.Sprintf("%s +gojen:input=%s->%s", g.cfg.commentQuote, s.EName, outputName)
+			if err := g.f.AppendContentAfter(output.Path, inputIndent, output.Template); err != nil {
+				return err
+			}
 		}
 
 		if created {
@@ -315,43 +337,6 @@ func (g *Gojen) applyState(s *State) (err error) {
 
 		g.c.Infof(!g.cfg.silent, "File already exists: '%s'. Skipped to init the file\n", s.ParsedPath)
 		return nil
-	case StrategyTrunc:
-		if ok := g.c.PerformYesNo("Do you want to truncate '%s'? ", s.ParsedPath); !ok {
-			g.c.Infof(!g.cfg.silent, "User skipped to truncate file: %s\n", s.ParsedPath)
-			return nil
-		}
-
-		return g.f.TruncWithContent(s.ParsedPath, s.ParsedTmpl)
-	case StrategyAppendAtLast:
-		exist := g.f.FileExists(s.ParsedPath)
-		if !exist {
-			if ok := g.c.PerformYesNo("File %s does not exist. Do you want to create it to append parsed content?", s.ParsedPath); !ok {
-				g.c.Infof(!g.cfg.silent, "User skipped to create file: %s\n", s.ParsedPath)
-				return nil
-			}
-
-			return g.f.TruncWithContent(s.ParsedPath, s.ParsedTmpl)
-		}
-
-		ignoreComparingLines := g.cfg.ignoreComparingLines
-		ignoreComparingLines.Add(s.e.IgnoreComparingLines...)
-		ignoreComparingLines.Add(s.d.IgnoreComparingLines...)
-		percent, highlighted, err := g.f.CompareContentWithFile(s.ParsedTmpl, s.ParsedPath, ignoreComparingLines)
-		if err != nil {
-			return err
-		}
-
-		if percent > 0 {
-			g.c.Dangerf(true, "Detected percent of same content %f of '%s':\n", percent, s.ParsedPath)
-			g.c.Printf(true, "%s\n", highlighted)
-			if ok := g.c.PerformYesNo("Do you still want to continue (y/N)? "); !ok {
-				return nil
-			}
-		}
-
-		// check percent same content.
-
-		return g.f.AppendContent(s.ParsedPath, s.ParsedTmpl)
 	case StrategyAppend:
 		exist := g.f.FileExists(s.ParsedPath)
 		if !exist {
@@ -359,10 +344,7 @@ func (g *Gojen) applyState(s *State) (err error) {
 			return nil
 		}
 
-		ignoreComparingLines := g.cfg.ignoreComparingLines
-		ignoreComparingLines.Add(s.e.IgnoreComparingLines...)
-		ignoreComparingLines.Add(s.d.IgnoreComparingLines...)
-		percent, highlighted, err := g.f.CompareContentWithFile(s.ParsedTmpl, s.ParsedPath, ignoreComparingLines)
+		percent, highlighted, err := g.f.CompareContentWithFile(s.ParsedTmpl, s.ParsedPath, util.MapExisting[string]{})
 		if err != nil {
 			return err
 		}
@@ -376,7 +358,44 @@ func (g *Gojen) applyState(s *State) (err error) {
 		}
 
 		lineIndent := fmt.Sprintf("%s +gojen:append=%s", g.cfg.commentQuote, s.ParsedEAlias)
+		for outputName, output := range s.Output {
+			inputIndent := fmt.Sprintf("%s +gojen:input=%s->%s", g.cfg.commentQuote, s.EName, outputName)
+			if err := g.f.AppendContentAfter(output.Path, inputIndent, output.Template); err != nil {
+				return err
+			}
+		}
 		return g.f.AppendContentAfter(s.ParsedPath, lineIndent, s.ParsedTmpl)
+	case StrategyAppendAtPos:
+		exist := g.f.FileExists(s.ParsedPath)
+		if !exist {
+			if ok := g.c.PerformYesNo("File %s does not exist. Do you want to create it to append parsed content?", s.ParsedPath); !ok {
+				g.c.Infof(!g.cfg.silent, "User skipped to create file: %s\n", s.ParsedPath)
+				return nil
+			}
+
+			return g.f.TruncWithContent(s.ParsedPath, s.ParsedTmpl)
+		}
+
+		percent, highlighted, err := g.f.CompareContentWithFile(s.ParsedTmpl, s.ParsedPath, util.MapExisting[string]{})
+		if err != nil {
+			return err
+		}
+
+		if percent > 0 {
+			g.c.Dangerf(true, "Detected percent of same content %f of '%s':\n", percent, s.ParsedPath)
+			g.c.Printf(true, "%s\n", highlighted)
+			if ok := g.c.PerformYesNo("Do you still want to continue (y/N)? "); !ok {
+				return nil
+			}
+		}
+
+		for outputName, output := range s.Output {
+			inputIndent := fmt.Sprintf("%s +gojen:input=%s->%s", g.cfg.commentQuote, s.EName, outputName)
+			if err := g.f.AppendContentAfter(output.Path, inputIndent, output.Template); err != nil {
+				return err
+			}
+		}
+		return g.f.AppendContent(s.ParsedPath, s.ParsedTmpl)
 	default:
 		fmt.Println("TODO: implement other strategies")
 	}

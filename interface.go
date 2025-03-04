@@ -3,6 +3,7 @@ package gojen
 import (
 	"text/template"
 
+	"github.com/cirius-go/gojen/lib/filemanager"
 	"github.com/cirius-go/gojen/util"
 )
 
@@ -11,7 +12,7 @@ type (
 	// FileManager is an interface is use for managing files.
 	//go:generate mockery --name FileManager
 	FileManager interface {
-		WalkDir(dirPath string, openFile bool, handler func(e *FileInfo) error) error
+		WalkDir(dirPath string, openFile bool, handler func(e *filemanager.FileInfo) error) error
 		CreateFileIfNotExist(path string, content string) (created bool, err error)
 		TruncWithContent(path string, content string) error
 		FileExists(path string) bool

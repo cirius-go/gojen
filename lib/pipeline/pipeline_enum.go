@@ -4,7 +4,7 @@
 // Build Date:
 // Built By:
 
-package gojen
+package pipeline
 
 import (
 	"fmt"

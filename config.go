@@ -1,12 +1,17 @@
 package gojen
 
-import "github.com/cirius-go/gojen/util"
+import (
+	"github.com/cirius-go/gojen/lib/cli"
+	"github.com/cirius-go/gojen/lib/filemanager"
+	"github.com/cirius-go/gojen/lib/pipeline"
+	"github.com/cirius-go/gojen/util"
+)
 
 // config is a struct that holds the configuration for the Gojen instance.
 type config struct {
-	console              *ConsoleConfig
-	pipeline             *PipelineConfig
-	fileManager          *FileManagerConfig
+	console              *cli.Config
+	pipeline             *pipeline.Config
+	fileManager          *filemanager.Config
 	store                *StoreConfig
 	silent               bool
 	commentQuote         string
@@ -38,17 +43,17 @@ func (c *config) IgnoreComparingLine(lines ...string) *config {
 	return c
 }
 
-func (c *config) SetConsoleConfig(cfg *ConsoleConfig) *config {
+func (c *config) SetConsoleConfig(cfg *cli.Config) *config {
 	c.console = cfg
 	return c
 }
 
-func (c *config) SetPipelineConfig(cfg *PipelineConfig) *config {
+func (c *config) SetPipelineConfig(cfg *pipeline.Config) *config {
 	c.pipeline = cfg
 	return c
 }
 
-func (c *config) SetFileManagerConfig(cfg *FileManagerConfig) *config {
+func (c *config) SetFileManagerConfig(cfg *filemanager.Config) *config {
 	c.fileManager = cfg
 	return c
 }
@@ -61,9 +66,9 @@ func (c *config) SetStoreConfig(cfg *StoreConfig) *config {
 // C returns a new Config struct.
 func C() *config {
 	return &config{
-		console:              ConsoleC(),
-		pipeline:             PipelineC(),
-		fileManager:          FileManagerC(),
+		console:              cli.C(),
+		pipeline:             pipeline.C(),
+		fileManager:          filemanager.C(),
 		store:                StoreC(),
 		silent:               false,
 		commentQuote:         "//",

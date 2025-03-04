@@ -1,4 +1,4 @@
-package gojen
+package cli
 
 import (
 	"bufio"
@@ -18,39 +18,39 @@ var (
 	blueColor   = "\033[34m"
 )
 
-// ConsoleConfig is the configuration for the CLI.
-type ConsoleConfig struct {
+// Config is the configuration for the CLI.
+type Config struct {
 	Color          bool
 	readInputDelay time.Duration
 }
 
 // WithColor sets the color for the CLI.
-func (c *ConsoleConfig) WithColor(color bool) *ConsoleConfig {
+func (c *Config) WithColor(color bool) *Config {
 	c.Color = color
 	return c
 }
 
 // WithDelayReadInput sets the delay for reading input.
-func (c *ConsoleConfig) WithDelayReadInput(delay time.Duration) *ConsoleConfig {
+func (c *Config) WithDelayReadInput(delay time.Duration) *Config {
 	c.readInputDelay = delay
 	return c
 }
 
 type Console struct {
-	cfg *ConsoleConfig
+	cfg *Config
 
 	writer io.Writer
 	reader io.Reader
 }
 
-// ConsoleC returns a new CLIConfig instance.
-func ConsoleC() *ConsoleConfig {
-	return &ConsoleConfig{
+// C returns a new CLIConfig instance.
+func C() *Config {
+	return &Config{
 		Color: true,
 	}
 }
 
-func NewConsoleWithConfig(cfg *ConsoleConfig) *Console {
+func NewWithConfig(cfg *Config) *Console {
 	return &Console{
 		cfg,
 		os.Stdout,
@@ -60,9 +60,9 @@ func NewConsoleWithConfig(cfg *ConsoleConfig) *Console {
 
 // NewConsole returns a new CLI instance.
 func NewConsole() *Console {
-	cfg := ConsoleC()
+	cfg := C()
 
-	return NewConsoleWithConfig(cfg)
+	return NewWithConfig(cfg)
 }
 
 // SetInput sets the input reader for the cli.

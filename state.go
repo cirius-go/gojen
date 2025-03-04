@@ -7,19 +7,20 @@ type (
 	State struct {
 		seq *Seq `yaml:"-"`
 		d   *D   `yaml:"-"`
-		e   *E   `yaml:"-"`
+		e   *T   `yaml:"-"`
 
-		Strategy      Strategy `yaml:"strategy"`
-		DName         string   `yaml:"d_name"`
-		EName         string   `yaml:"e_name"`
-		RawEAlias     string   `yaml:"e_alias"`
-		ParsedEAlias  string   `yaml:"parsed_e_alias"`
-		Args          Args     `yaml:"args"`
-		ForwardedArgs Args     `yaml:"forwarded_args"`
-		RawPath       string   `yaml:"raw_path"`
-		RawTmpl       string   `yaml:"raw_tmpl"`
-		ParsedPath    string   `yaml:"parsed_path"`
-		ParsedTmpl    string   `yaml:"parsed_tmpl"`
+		Strategy      Strategy           `yaml:"strategy"`
+		DName         string             `yaml:"d_name"`
+		EName         string             `yaml:"e_name"`
+		RawEAlias     string             `yaml:"e_alias"`
+		ParsedEAlias  string             `yaml:"parsed_e_alias"`
+		Args          Args               `yaml:"args"`
+		ForwardedArgs Args               `yaml:"forwarded_args"`
+		RawPath       string             `yaml:"raw_path"`
+		RawTmpl       string             `yaml:"raw_tmpl"`
+		ParsedPath    string             `yaml:"parsed_path"`
+		ParsedTmpl    string             `yaml:"parsed_tmpl"`
+		Output        map[string]*Output `yaml:"output"`
 	}
 )
 

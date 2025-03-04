@@ -1,3 +1,4 @@
 cmd
 .gojen-backup
 .gojen
+internal/*
